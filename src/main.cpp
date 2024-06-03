@@ -36,7 +36,7 @@ void lowPriority() {
     while(true) {
         comms.run();
         data.log();
-        threads.delay(50);
+        threads.delay(10);
     }
 }
 

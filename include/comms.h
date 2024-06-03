@@ -14,7 +14,7 @@
 #include <vehicle.h>
 #include <nav.h>
 
-#define MAVLINK_UPDATE_RATE_HZ 10
+#define MAVLINK_UPDATE_RATE_HZ 20
 #define PRINT_IMU
 #define PRINT_GNSS
 
