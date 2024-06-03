@@ -22,8 +22,8 @@ class Comms
 {
 private:
     Sensors* sensors;
-    Nav* nav;
     Vehicle* vehicle;
+    Nav* nav;
     int timestamp;
 public:
     bfs::MavLink<5, 10> mavlink;

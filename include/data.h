@@ -19,8 +19,8 @@ class Data
 {
 private:
     Sensors* sensors;
-    Nav* nav;
     Vehicle* vehicle;
+    Nav* nav;
 public:
     Data(Sensors* sensors, Vehicle* vehicle, Nav* nav) : sensors(sensors), vehicle(vehicle), nav(nav) {}
     void init();
