@@ -16,9 +16,15 @@ private:
 public:
     Vehicle() {}
     void init();
+    void update();
 };
 
 inline void Vehicle::init()
+{
+    
+}
+
+inline void Vehicle::update()
 {
     
 }

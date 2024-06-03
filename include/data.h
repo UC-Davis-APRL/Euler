@@ -12,8 +12,8 @@
 #define DATA_H
 
 #include <sensors.h>
-#include <nav.h>
 #include <vehicle.h>
+#include <nav.h>
 
 class Data
 {
@@ -22,7 +22,7 @@ private:
     Nav* nav;
     Vehicle* vehicle;
 public:
-    Data(Sensors* sensors, Nav* nav, Vehicle* vehicle) : sensors(sensors), nav(nav), vehicle(vehicle) {}
+    Data(Sensors* sensors, Vehicle* vehicle, Nav* nav) : sensors(sensors), vehicle(vehicle), nav(nav) {}
     void init();
     void log();
 };

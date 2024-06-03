@@ -1,23 +1,33 @@
 #include <Arduino.h>
 #include <TeensyThreads.h>
 #include <sensors.h>
+
 #include <nav.h>
+#include <guidance.h>
+#include <control.h>
+
 #include <comms.h>
 #include <data.h>
 
 /*
     Modules (enable or disable by commenting out)
     - Sensors: Provides access to IMU, GNSS
-    - Nav: Fuses raw sensor data into stable navigational values
     - Vehicle: Provides and manages vehicle state
-    - Comms: Handles bidirectional MavLink communication
+    - Nav: Fuses raw sensor data into stable navigational values
+    - Guidance: Handles vehicle guidance
+    - Control: Actuates vehicle control surfaces
+    - Comms: Handles bidirectional radio link
     - Data: Handles onboard logging & flight data
 */
 Sensors sensors = Sensors();
-Nav nav = Nav(&sensors);
 Vehicle vehicle = Vehicle();
-Comms comms = Comms(&sensors, &nav, &vehicle);
-Data data = Data(&sensors, &nav, &vehicle);
+
+Nav nav = Nav(&sensors);
+Guidance guidance = Guidance(&vehicle, &nav);
+Control control = Control(&vehicle, &nav, &guidance);
+
+Comms comms = Comms(&sensors, &vehicle, &nav);
+Data data = Data(&sensors, &vehicle, &nav);
 
 /*
     Low priority thread, less CPU time, yields to primary loop.
@@ -25,6 +35,7 @@ Data data = Data(&sensors, &nav, &vehicle);
 void lowPriority() {
     while(true) {
         comms.run();
+        data.log();
         threads.delay(50);
     }
 }
@@ -37,8 +48,12 @@ void setup() {
     Wire.setClock(400000);
 
     sensors.init();
-    nav.init();
     vehicle.init();
+    
+    nav.init();
+    guidance.init();
+    control.init();
+
     comms.init();
     data.init();
 
@@ -46,6 +61,9 @@ void setup() {
 }
 
 void loop() {
+    vehicle.update();
+
     nav.run();
-    data.log();
+    guidance.run();
+    control.run();
 }

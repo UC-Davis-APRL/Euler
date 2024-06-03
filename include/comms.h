@@ -11,8 +11,8 @@
 
 #include <mavlink.h>
 #include <sensors.h>
-#include <nav.h>
 #include <vehicle.h>
+#include <nav.h>
 
 #define MAVLINK_UPDATE_RATE_HZ 10
 #define PRINT_IMU
@@ -27,7 +27,7 @@ private:
     int timestamp;
 public:
     bfs::MavLink<5, 10> mavlink;
-    Comms(Sensors* sensors, Nav* nav, Vehicle* vehicle) : sensors(sensors), nav(nav), vehicle(vehicle) {}
+    Comms(Sensors* sensors, Vehicle* vehicle, Nav* nav) : sensors(sensors), vehicle(vehicle), nav(nav) {}
     void init();
     void run();
 };
