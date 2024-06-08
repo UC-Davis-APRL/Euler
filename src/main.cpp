@@ -6,7 +6,7 @@
 #include <control.h>
 #include <comms.h>
 #include <data.h>
-
+#include <Servo.h>
 /*
     Modules (enable or disable by commenting out)
     - Sensors: Provides access to IMU, GNSS
@@ -30,43 +30,50 @@ Data data = Data(&sensors, &vehicle, &nav);
 /*
     Low priority thread, less CPU time, yields to primary loop.
 */
-void lowPriority() {
-    while(true) {
+void lowPriority()
+{
+    while (true)
+    {
         comms.run();
         data.log();
         threads.delay(10);
     }
 }
 
-const int motorPin1 = 28;
-const int motorPin2 = 29;
+const int motorPin1 = 13;
+const int motorPin2 = 14;
 
 const int rampTime = 10000;
 const int interval = rampTime / 255;
 
-void motorThread() {
-    for (int pwmValue = 0; pwmValue <= 255; pwmValue++) {
+void motorThread()
+{
+    for (int pwmValue = 0; pwmValue <= 255; pwmValue++)
+    {
         analogWrite(motorPin1, pwmValue);
         analogWrite(motorPin2, pwmValue);
         delay(interval);
     }
-    for (int pwmValue = 255; pwmValue >= 0; pwmValue--) {
+    for (int pwmValue = 255; pwmValue >= 0; pwmValue--)
+    {
         analogWrite(motorPin1, pwmValue);
         analogWrite(motorPin2, pwmValue);
         delay(interval);
     }
 }
 
-void setup() {
+void setup()
+{
     Serial.begin(9600);
-    while (!Serial) yield();
+    while (!Serial)
+        yield();
 
     Wire.begin();
     Wire.setClock(400000);
 
     sensors.init();
     vehicle.init();
-    
+
     nav.init();
     guidance.init();
     control.init();
@@ -84,7 +91,8 @@ void setup() {
     // threads.addThread(motorThread);
 }
 
-void loop() {
+void loop()
+{
     vehicle.update();
 
     nav.run();
