@@ -1,11 +1,9 @@
 #include <Arduino.h>
 #include <TeensyThreads.h>
 #include <sensors.h>
-
 #include <nav.h>
 #include <guidance.h>
 #include <control.h>
-
 #include <comms.h>
 #include <data.h>
 
@@ -40,6 +38,25 @@ void lowPriority() {
     }
 }
 
+const int motorPin1 = 28;
+const int motorPin2 = 29;
+
+const int rampTime = 10000;
+const int interval = rampTime / 255;
+
+void motorThread() {
+    for (int pwmValue = 0; pwmValue <= 255; pwmValue++) {
+        analogWrite(motorPin1, pwmValue);
+        analogWrite(motorPin2, pwmValue);
+        delay(interval);
+    }
+    for (int pwmValue = 255; pwmValue >= 0; pwmValue--) {
+        analogWrite(motorPin1, pwmValue);
+        analogWrite(motorPin2, pwmValue);
+        delay(interval);
+    }
+}
+
 void setup() {
     Serial.begin(9600);
     while (!Serial) yield();
@@ -58,6 +75,13 @@ void setup() {
     data.init();
 
     threads.addThread(lowPriority);
+
+    // Initialize PWM pins
+    pinMode(28, OUTPUT);
+    pinMode(29, OUTPUT);
+    analogWrite(motorPin1, 0);
+    analogWrite(motorPin2, 0);
+    // threads.addThread(motorThread);
 }
 
 void loop() {

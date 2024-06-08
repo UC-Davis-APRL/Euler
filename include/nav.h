@@ -18,9 +18,9 @@
     Adafruit_Madgwick - Fair speed, fair accuracy
     Adafruit_Mahony - Fastest speed, lowest accuracy
 */
-// Adafruit_NXPSensorFusion filter;
+Adafruit_NXPSensorFusion filter;
 // Adafruit_Mahony filter;
-Adafruit_Madgwick filter;
+// Adafruit_Madgwick filter;
 
 #define FILTER_UPDATE_RATE_HZ 100
 #define IMU_UPDATE_RATE_HZ 100
