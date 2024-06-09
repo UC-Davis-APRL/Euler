@@ -1,9 +1,9 @@
 /*
     sensors.h
-    
+
     Initializes & configures sensors
     Built for: Adafruit LIS3MDL, Adafruit LSM6DSOX, Sparkfun U-BLOX_GNSS
-    
+
     @authors Orfeas Magoulas
 */
 #ifndef SENSORS_H
@@ -23,11 +23,12 @@ private:
     int timestamp;
     Adafruit_LIS3MDL lis3mdl;
     Adafruit_LSM6DSOX lsm6dsox;
+
 public:
     Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
     Adafruit_Sensor_Calibration_EEPROM calibration;
     SFE_UBLOX_GNSS gnss;
-    Sensors(){}
+    Sensors() {}
     void init();
     void initIMU();
     void initGNSS();
@@ -40,9 +41,12 @@ public:
 inline void Sensors::init()
 {
     Serial.println(F("[SENSORS] Initializing..."));
-    if (!calibration.begin()) {
+    if (!calibration.begin())
+    {
         Serial.println(F("[SENSORS] Failed to initialize IMU calibration."));
-    } else if (!calibration.loadCalibration()) {
+    }
+    else if (!calibration.loadCalibration())
+    {
         Serial.println(F("[SENSORS] No IMU calibration data found in EEPROM."));
     }
 
@@ -58,14 +62,16 @@ inline void Sensors::init()
 */
 inline void Sensors::initIMU()
 {
-    while (!lsm6dsox.begin_I2C()) {
+    while (!lsm6dsox.begin_I2C())
+    {
         Serial.println(F("[SENSORS] LSM6DSOX not detected at default I2C address. Retrying..."));
-        delay (3000);
+        delay(3000);
     }
 
-    while (!lis3mdl.begin_I2C()) {
+    while (!lis3mdl.begin_I2C())
+    {
         Serial.println(F("[SENSORS] LIS3MDL not detected at default I2C address. Retrying..."));
-        delay (3000);
+        delay(3000);
     }
 
     accelerometer = lsm6dsox.getAccelerometerSensor();
@@ -82,19 +88,20 @@ inline void Sensors::initIMU()
     lis3mdl.setPerformanceMode(LIS3MDL_MEDIUMMODE);
     lis3mdl.setOperationMode(LIS3MDL_CONTINUOUSMODE);
 
-    #if defined(PRINT_IMU_DETAILS)
+#if defined(PRINT_IMU_DETAILS)
     accelerometer->printSensorDetails();
     gyroscope->printSensorDetails();
     magnetometer->printSensorDetails();
-    #endif
+#endif
 }
 
 inline void Sensors::initGNSS()
 {
     // gnss.enableDebugging();
-    while (!gnss.begin()) {
+    while (!gnss.begin())
+    {
         Serial.println(F("[SENSORS] U-BLOX M10 GNSS not detected at default I2C address. Retrying..."));
-        delay (3000);
+        delay(3000);
     }
     gnss.setI2COutput(COM_TYPE_UBX);
     // gnss.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);

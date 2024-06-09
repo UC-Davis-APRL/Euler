@@ -1,9 +1,9 @@
 /*
     vehicle.h
-    
+
     Manages vehicle states
     WIP
-    
+
     @authors Orfeas Magoulas
 */
 
@@ -28,7 +28,6 @@ inline void Vehicle::init()
 
 inline void Vehicle::update()
 {
-    
 }
 
 #endif

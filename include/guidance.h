@@ -1,9 +1,9 @@
 /*
     guidance.h
-    
+
     Manages vehicle guidance
     WIP
-    
+
     @authors Orfeas Magoulas
 */
 
@@ -16,10 +16,11 @@
 class Guidance
 {
 private:
-    Vehicle* vehicle;
-    Nav* nav;
+    Vehicle *vehicle;
+    Nav *nav;
+
 public:
-    Guidance(Vehicle* vehicle, Nav* nav) : vehicle(vehicle), nav(nav)  {}
+    Guidance(Vehicle *vehicle, Nav *nav) : vehicle(vehicle), nav(nav) {}
     void init();
     void run();
 };
@@ -33,7 +34,6 @@ inline void Guidance::init()
 
 inline void Guidance::run()
 {
-    
 }
 
 #endif

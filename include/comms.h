@@ -1,9 +1,9 @@
 /*
     comms.h
-    
+
     Initializes & configures MavLink radio link
     Maintains heartbeat & continuous connection
-    
+
     @authors Orfeas Magoulas
 */
 #ifndef COMMS_H
@@ -21,13 +21,14 @@
 class Comms
 {
 private:
-    Sensors* sensors;
-    Vehicle* vehicle;
-    Nav* nav;
+    Sensors *sensors;
+    Vehicle *vehicle;
+    Nav *nav;
     int timestamp;
+
 public:
     bfs::MavLink<5, 10> mavlink;
-    Comms(Sensors* sensors, Vehicle* vehicle, Nav* nav) : sensors(sensors), vehicle(vehicle), nav(nav) {}
+    Comms(Sensors *sensors, Vehicle *vehicle, Nav *nav) : sensors(sensors), vehicle(vehicle), nav(nav) {}
     void init();
     void run();
 };
@@ -80,7 +81,8 @@ inline void Comms::init()
 */
 inline void Comms::run()
 {
-    if ((millis() - timestamp) < (1000 / MAVLINK_UPDATE_RATE_HZ)) {
+    if ((millis() - timestamp) < (1000 / MAVLINK_UPDATE_RATE_HZ))
+    {
         return;
     }
     timestamp = millis();
@@ -108,7 +110,7 @@ inline void Comms::run()
 
     mavlink.Update();
 
-    #if defined(PRINT_IMU)
+#if defined(PRINT_IMU)
     Serial.print("Orientation: ");
     Serial.print(nav->heading);
     Serial.print(", ");
@@ -124,14 +126,14 @@ inline void Comms::run()
     Serial.print(nav->qy, 4);
     Serial.print(", ");
     Serial.println(nav->qz, 4);
-    #endif
+#endif
 
-    #if defined(PRINT_GNSS)
+#if defined(PRINT_GNSS)
     Serial.print(F("Fix Type: "));
     Serial.println(nav->gnss_fix_type);
 
     Serial.print(F("Number of satellites: "));
-    Serial.println(nav->gnss_satellites);  
+    Serial.println(nav->gnss_satellites);
 
     Serial.print(F("Lat: "));
     Serial.print(nav->lat, 7);
@@ -142,7 +144,7 @@ inline void Comms::run()
     Serial.print(nav->alt);
     Serial.print(F(" (meters)"));
     Serial.println();
-    #endif
+#endif
 }
 
 #endif

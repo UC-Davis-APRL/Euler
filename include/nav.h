@@ -1,9 +1,9 @@
 /*
     nav.h
-    
+
     Fuses raw sensor data into stable navigation values
     Supports: NXPSensorFusion, Madgwick, Mahony algorithms
-    
+
     @authors Orfeas Magoulas
 */
 #ifndef NAV_H
@@ -31,13 +31,14 @@ Adafruit_NXPSensorFusion filter;
 class Nav
 {
 private:
-    Sensors* sensors;
+    Sensors *sensors;
     int filterTimestamp;
     int imuTimestamp;
     int gnssTimestamp;
     void updateFilter();
     void updateIMU();
     void updateGNSS();
+
 public:
     // IMU
     float roll, pitch, heading;
@@ -49,7 +50,7 @@ public:
     int gnss_fix_type;
     int gnss_satellites;
 
-    Nav(Sensors* sensors) : sensors(sensors) {}
+    Nav(Sensors *sensors) : sensors(sensors) {}
     void init();
     void run();
 };
@@ -69,20 +70,23 @@ inline void Nav::init()
 */
 inline void Nav::updateFilter()
 {
-    if ((millis() - filterTimestamp) < (1000 / FILTER_UPDATE_RATE_HZ)) {
+    if ((millis() - filterTimestamp) < (1000 / FILTER_UPDATE_RATE_HZ))
+    {
         return;
     }
     filterTimestamp = millis();
-    
+
     // Get latest sensor events
     sensors_event_t accel, gyro, mag;
     sensors->accelerometer->getEvent(&accel);
     sensors->gyroscope->getEvent(&gyro);
     sensors->magnetometer->getEvent(&mag);
 
-    #if defined(AHRS_DEBUG_OUTPUT)
-    Serial.print("I2C took "); Serial.print(millis() - timestamp); Serial.println(" ms");
-    #endif
+#if defined(AHRS_DEBUG_OUTPUT)
+    Serial.print("I2C took ");
+    Serial.print(millis() - timestamp);
+    Serial.println(" ms");
+#endif
 
     // Apply known calibrations to sensor events
     sensors->calibration.calibrate(mag);
@@ -98,9 +102,11 @@ inline void Nav::updateFilter()
     // Update filter with calibrated events
     filter.update(gx, gy, gz, accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
 
-    #if defined(AHRS_DEBUG_OUTPUT)
-    Serial.print("Update took "); Serial.print(millis() - timestamp); Serial.println(" ms");
-    #endif
+#if defined(AHRS_DEBUG_OUTPUT)
+    Serial.print("Update took ");
+    Serial.print(millis() - timestamp);
+    Serial.println(" ms");
+#endif
 }
 
 /*
@@ -108,7 +114,8 @@ inline void Nav::updateFilter()
 */
 inline void Nav::updateIMU()
 {
-    if ((millis() - imuTimestamp) < (1000 / IMU_UPDATE_RATE_HZ)) {
+    if ((millis() - imuTimestamp) < (1000 / IMU_UPDATE_RATE_HZ))
+    {
         return;
     }
     imuTimestamp = millis();
@@ -125,12 +132,14 @@ inline void Nav::updateIMU()
 */
 inline void Nav::updateGNSS()
 {
-    if ((millis() - gnssTimestamp) < (1000 / GNSS_UPDATE_RATE_HZ)) {
+    if ((millis() - gnssTimestamp) < (1000 / GNSS_UPDATE_RATE_HZ))
+    {
         return;
     }
     gnssTimestamp = millis();
 
-    if (!sensors->gnss.getPVT(1)) {
+    if (!sensors->gnss.getPVT(1))
+    {
         return;
     }
 

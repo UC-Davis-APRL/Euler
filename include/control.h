@@ -119,11 +119,11 @@ inline void Control::run()
     }
     timestamp = millis();
 
-    if (motor_armed) {
+    if (motor_armed)
+    {
         motor1.writeMicroseconds(2000);
         motor2.writeMicroseconds(2000);
-
-     }
+    }
 
     if (lock_gimbal)
     {

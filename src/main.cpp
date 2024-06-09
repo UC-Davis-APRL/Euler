@@ -34,6 +34,7 @@ void lowPriority()
 {
     while (true)
     {
+        comms.run();
         data.log();
         threads.delay(10);
     }
@@ -45,7 +46,7 @@ void setup()
     while (!Serial)
         yield();
     Serial.println(F("[MAIN] Initializing..."));
-    
+
     Wire.begin();
     Wire.setClock(400000);
 
@@ -69,5 +70,4 @@ void loop()
     nav.run();
     guidance.run();
     control.run();
-    comms.run();
 }
