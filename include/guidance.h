@@ -26,7 +26,9 @@ public:
 
 inline void Guidance::init()
 {
-    
+    Serial.println(F("[Guidance] Initializing..."));
+    // TODO
+    Serial.println(F("[Guidance] Initialization complete!"));
 }
 
 inline void Guidance::run()

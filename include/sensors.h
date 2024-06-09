@@ -39,14 +39,16 @@ public:
 */
 inline void Sensors::init()
 {
+    Serial.println(F("[Sensors] Initializing..."));
     if (!calibration.begin()) {
-        Serial.println(F("Failed to initialize IMU calibration."));
+        Serial.println(F("[Sensors] Failed to initialize IMU calibration."));
     } else if (!calibration.loadCalibration()) {
-        Serial.println(F("No IMU calibration data found in EEPROM."));
+        Serial.println(F("[Sensors] No IMU calibration data found in EEPROM."));
     }
 
     initIMU();
     initGNSS();
+    Serial.println(F("[Sensors] Initialization complete!"));
 }
 
 /*
@@ -57,13 +59,13 @@ inline void Sensors::init()
 inline void Sensors::initIMU()
 {
     while (!lsm6dsox.begin_I2C()) {
-        Serial.println(F("LSM6DSOX not detected at default I2C address. Retrying..."));
-        delay (1000);
+        Serial.println(F("[Sensors] LSM6DSOX not detected at default I2C address. Retrying..."));
+        delay (3000);
     }
 
     while (!lis3mdl.begin_I2C()) {
-        Serial.println(F("LIS3MDL not detected at default I2C address. Retrying..."));
-        delay (1000);
+        Serial.println(F("[Sensors] LIS3MDL not detected at default I2C address. Retrying..."));
+        delay (3000);
     }
 
     accelerometer = lsm6dsox.getAccelerometerSensor();
@@ -91,8 +93,8 @@ inline void Sensors::initGNSS()
 {
     // gnss.enableDebugging();
     while (!gnss.begin()) {
-        Serial.println(F("U-BLOX M10 GNSS not detected at default I2C address. Retrying..."));
-        delay (1000);
+        Serial.println(F("[Sensors] U-BLOX M10 GNSS not detected at default I2C address. Retrying..."));
+        delay (3000);
     }
     gnss.setI2COutput(COM_TYPE_UBX);
     // gnss.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);

@@ -45,7 +45,7 @@ public:
     void armMotor(Servo motor, int min, int max);
 
     bool lock_gimbal = true;
-    bool motor_armed = false;
+    bool motor_armed = true;
 };
 
 inline void Control::init()
@@ -67,12 +67,15 @@ inline void Control::init()
 
 inline void Control::armMotor(Servo motor, int min, int max)
 {
-    motor.writeMicroseconds(min); // send low signal to arm the ESC
-    delay(2000);                  // wait for 2 seconds
-    motor.writeMicroseconds(max); // send high signal to complete arming
-    delay(2000);                  // wait for 2 seconds
-    motor.writeMicroseconds(min); // send low signal again
-    delay(2000);                  // wait for 2 seconds
+    // motor.writeMicroseconds(min); // send low signal to arm the ESC
+    // delay(2000);                  // wait for 2 seconds
+    // motor.writeMicroseconds(max); // send high signal to complete arming
+    // delay(2000);                  // wait for 2 seconds
+    // motor.writeMicroseconds(min); // send low signal again
+    // delay(2000);                  // wait for 2 seconds
+    motor.writeMicroseconds(0);
+    delay(1000);
+    Serial.println("Motor Configured");
 }
 
 // range is 0-1024, it clamps internally
@@ -113,6 +116,12 @@ inline void Control::run()
         return;
     }
     timestamp = millis();
+
+    if (motor_armed) {
+        motor1.writeMicroseconds(2000);
+        motor2.writeMicroseconds(2000);
+
+     }
 
     if (lock_gimbal)
     {
