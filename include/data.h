@@ -29,7 +29,9 @@ public:
 
 inline void Data::init()
 {
-    
+    Serial.println(F("[DATA] Initializing..."));
+    // TODO
+    Serial.println(F("[DATA] Initialization complete!"));
 }
 
 inline void Data::log()

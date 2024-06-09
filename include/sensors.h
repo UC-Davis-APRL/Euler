@@ -15,7 +15,7 @@
 #include <Adafruit_Sensor_Calibration.h>
 #include <InternalTemperature.h>
 
-#define PRINT_IMU_DETAILS
+// #define PRINT_IMU_DETAILS
 
 class Sensors
 {
@@ -39,16 +39,16 @@ public:
 */
 inline void Sensors::init()
 {
-    Serial.println(F("[Sensors] Initializing..."));
+    Serial.println(F("[SENSORS] Initializing..."));
     if (!calibration.begin()) {
-        Serial.println(F("[Sensors] Failed to initialize IMU calibration."));
+        Serial.println(F("[SENSORS] Failed to initialize IMU calibration."));
     } else if (!calibration.loadCalibration()) {
-        Serial.println(F("[Sensors] No IMU calibration data found in EEPROM."));
+        Serial.println(F("[SENSORS] No IMU calibration data found in EEPROM."));
     }
 
     initIMU();
     initGNSS();
-    Serial.println(F("[Sensors] Initialization complete!"));
+    Serial.println(F("[SENSORS] Initialization complete!"));
 }
 
 /*
@@ -59,12 +59,12 @@ inline void Sensors::init()
 inline void Sensors::initIMU()
 {
     while (!lsm6dsox.begin_I2C()) {
-        Serial.println(F("[Sensors] LSM6DSOX not detected at default I2C address. Retrying..."));
+        Serial.println(F("[SENSORS] LSM6DSOX not detected at default I2C address. Retrying..."));
         delay (3000);
     }
 
     while (!lis3mdl.begin_I2C()) {
-        Serial.println(F("[Sensors] LIS3MDL not detected at default I2C address. Retrying..."));
+        Serial.println(F("[SENSORS] LIS3MDL not detected at default I2C address. Retrying..."));
         delay (3000);
     }
 
@@ -93,7 +93,7 @@ inline void Sensors::initGNSS()
 {
     // gnss.enableDebugging();
     while (!gnss.begin()) {
-        Serial.println(F("[Sensors] U-BLOX M10 GNSS not detected at default I2C address. Retrying..."));
+        Serial.println(F("[SENSORS] U-BLOX M10 GNSS not detected at default I2C address. Retrying..."));
         delay (3000);
     }
     gnss.setI2COutput(COM_TYPE_UBX);

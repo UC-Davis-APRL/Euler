@@ -59,7 +59,9 @@ public:
 */
 inline void Nav::init()
 {
+    Serial.println(F("[NAV] Initializing..."));
     filter.begin(FILTER_UPDATE_RATE_HZ);
+    Serial.println(F("[NAV] Initialization complete!"));
 }
 
 /*

@@ -4,7 +4,7 @@
     Manages vehicle control
     WIP
 
-    @authors Orfeas Magoulas
+    @authors Orfeas Magoulas, Het Satasiya
 */
 
 #ifndef CONTROL_H
@@ -50,6 +50,7 @@ public:
 
 inline void Control::init()
 {
+    Serial.println(F("[CONTROL] Initializing..."));
     // Attach the servos to the pins 36 and 37
     servo1.attach(36);
     servo2.attach(37);
@@ -63,6 +64,7 @@ inline void Control::init()
     motor2.attach(14, usMin, usMax);
     Control::armMotor(motor1, usMin, usMax);
     Control::armMotor(motor2, usMin, usMax);
+    Serial.println(F("[CONTROL] Initialization complete!"));
 }
 
 inline void Control::armMotor(Servo motor, int min, int max)

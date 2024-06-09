@@ -41,6 +41,7 @@ public:
 */
 inline void Comms::init()
 {
+    Serial.println(F("[COMMS] Initializing..."));
     mavlink.hardware_serial(&Serial4);
     mavlink.aircraft_type(bfs::HELICOPTER);
 
@@ -69,6 +70,7 @@ inline void Comms::init()
     mavlink.Update();
 
     mavlink.SendStatusText(bfs::Severity::INFO, "MavLink Initialized");
+    Serial.println(F("[COMMS] Initialization complete!"));
 }
 
 /*

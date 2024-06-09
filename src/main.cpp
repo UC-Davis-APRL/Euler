@@ -44,7 +44,7 @@ void setup()
     Serial.begin(9600);
     while (!Serial)
         yield();
-    Serial.println(F("System initializing..."));
+    Serial.println(F("[MAIN] Initializing..."));
     
     Wire.begin();
     Wire.setClock(400000);
@@ -60,7 +60,7 @@ void setup()
     data.init();
 
     threads.addThread(lowPriority);
-    Serial.println(F("System initialization complete!"));
+    Serial.println(F("[MAIN] Initialization complete!"));
 }
 
 void loop()

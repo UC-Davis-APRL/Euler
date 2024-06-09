@@ -21,7 +21,9 @@ public:
 
 inline void Vehicle::init()
 {
-    
+    Serial.println(F("[VEHICLE] Initializing..."));
+    // TODO
+    Serial.println(F("[VEHICLE] Initialization complete!"));
 }
 
 inline void Vehicle::update()
