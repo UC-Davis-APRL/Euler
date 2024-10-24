@@ -4,7 +4,7 @@
     Manages vehicle control
     WIP
 
-    @authors Orfeas Magoulas, Het Satasiya
+    @authors 
 */
 
 #ifndef CONTROL_H
@@ -20,32 +20,54 @@
 class Control
 {
 private:
-    unsigned long timestamp;
     Vehicle *vehicle;
     Nav *nav;
+    Guidance *guidance;
     Servo servo1;
     Servo servo2;
-    int initialPosition1 = 80;
-    int initialPosition2 = 110;
+    int initialPosition1 = 28;
+    int initialPosition2 = 150;
     Servo motor1;
     Servo motor2;
     int usMin = 1000;
     int usMax = 2000;
 
+    // PID controller gains
+    float Kp_servo = 2.0;
+    float Ki_servo = 0.0;
+    float Kd_servo = 0.0;
+
+    // PID controller variables
+    float integralPitch = 0;
+    float integralRoll = 0;
+    float prevErrorPitch = 0;
+    float prevErrorRoll = 0;
+
+    // Integral saturation limit
+    float integralLimit = 5.0;
+
+    // Timing variables
+    unsigned long timestamp;
+    unsigned long lastTime;
+
 public:
-    Control(Vehicle *vehicle, Nav *nav, Guidance *guidance) : vehicle(vehicle), nav(nav), timestamp(0)
+    Control(Vehicle *vehicle, Nav *nav, Guidance *guidance)
+        : vehicle(vehicle), nav(nav), guidance(guidance), timestamp(0), lastTime(0)
     {
     }
     void init();
     void run();
-    void setServo1Angle(int angle);
-    void setServo2Angle(int angle);
-    void setMotor1Speed(int speed);
-    void setMotor2Speed(int speed);
-    void armMotor(Servo motor, int min, int max);
+    void arm();
+    void setServo1Angle(float angle);
+    void setServo2Angle(float angle);
+    void setMotor1SpeedTest(int speed);
+    void setMotor2SpeedTest(int speed);
+    void setMotor1Speed(float speed);
+    void setMotor2Speed(float speed);
+    void armMotor(Servo &motor, int min, int max);
 
-    bool lock_gimbal = true;
-    bool motor_armed = true;
+    bool lock_gimbal = false;
+    bool motor_armed = false;
 };
 
 inline void Control::init()
@@ -59,53 +81,52 @@ inline void Control::init()
     servo1.write(initialPosition1);
     servo2.write(initialPosition2);
 
-    // Attach motors to pins 13 and 14
-    motor1.attach(13, usMin, usMax);
-    motor2.attach(14, usMin, usMax);
-    Control::armMotor(motor1, usMin, usMax);
-    Control::armMotor(motor2, usMin, usMax);
+    // Attach motors to pins 2 and 3
+    motor1.attach(2, usMin, usMax);
+    motor2.attach(3, usMin, usMax);
+
     Serial.println(F("[CONTROL] Initialization complete!"));
 }
 
-inline void Control::armMotor(Servo motor, int min, int max)
+inline void Control::arm()
 {
-    // motor.writeMicroseconds(min); // send low signal to arm the ESC
-    // delay(2000);                  // wait for 2 seconds
-    // motor.writeMicroseconds(max); // send high signal to complete arming
-    // delay(2000);                  // wait for 2 seconds
-    // motor.writeMicroseconds(min); // send low signal again
-    // delay(2000);                  // wait for 2 seconds
-    motor.writeMicroseconds(0);
-    delay(1000);
-    Serial.println("Motor Configured");
+    Serial.println(F("[CONTROL] Arming motors..."));
+    Control::armMotor(motor1, usMin, usMax);
+    Control::armMotor(motor2, usMin, usMax);
+    motor_armed = true;
+    Serial.println(F("[CONTROL] Motors armed"));
 }
 
-// range is 0-1024, it clamps internally
-inline void Control::setMotor1Speed(int speed)
+inline void Control::armMotor(Servo &motor, int min, int max)
+{
+    motor.writeMicroseconds(min); // send low signal to arm the ESC
+    delay(1000);                  // wait for 1 second
+    Serial.println("[CONTROL] Motor armed");
+}
+
+inline void Control::setMotor1SpeedTest(int speed)
 {
     if (motor_armed)
     {
-        speed = constrain(speed, 0, 1024);
-        motor1.writeMicroseconds(usMin + (int)(((float)speed / 1024.0) * (float)(usMax - usMin)));
+        motor1.write(speed);
     }
 }
 
-// range is 0-1024, it clamps internally
-inline void Control::setMotor2Speed(int speed)
+inline void Control::setMotor2SpeedTest(int speed)
 {
     if (motor_armed)
     {
-        speed = constrain(speed, 0, 1024);
-        motor2.writeMicroseconds(usMin + (int)(((float)speed / 1024.0) * (float)(usMax - usMin)));
+        motor2.write(speed);
     }
 }
-inline void Control::setServo1Angle(int angle)
+
+inline void Control::setServo1Angle(float angle)
 {
     int relativeAngle = constrain(initialPosition1 + angle, 0, 180);
     servo1.write(relativeAngle);
 }
 
-inline void Control::setServo2Angle(int angle)
+inline void Control::setServo2Angle(float angle)
 {
     int relativeAngle = constrain(initialPosition2 + angle, 0, 180);
     servo2.write(relativeAngle);
@@ -117,13 +138,13 @@ inline void Control::run()
     {
         return;
     }
-    timestamp = millis();
-
-    if (motor_armed)
+    unsigned long currentTime = millis();
+    float deltaTime = (currentTime - timestamp) / 1000.0f; // Convert milliseconds to seconds
+    if (deltaTime <= 0)
     {
-        motor1.writeMicroseconds(2000);
-        motor2.writeMicroseconds(2000);
+        deltaTime = 0.001f; // Prevent division by zero
     }
+    timestamp = currentTime;
 
     if (lock_gimbal)
     {
@@ -133,23 +154,48 @@ inline void Control::run()
     else
     {
         // Get the pitch and roll from the nav
-        float pitch = nav->pitch;
-        float roll = nav->roll;
+        float pitch = nav->roll;
+        float roll = nav->pitch;
 
-        // Compensate for the IMU being at a 45-degree angle
+        printf("Pitch %lf, Roll: %lf\n", pitch, roll);
+
+        // Compensate for the IMU being at a 45-degree angle (if necessary)
         float adjustedPitch = pitch * cos(PI / 4) - roll * sin(PI / 4);
         float adjustedRoll = pitch * sin(PI / 4) + roll * cos(PI / 4);
 
-        // Map to servo angles
-        int servo1Angle = map(adjustedPitch, -45, 45, -30, 30);
-        int servo2Angle = map(adjustedRoll, -45, 45, -30, 30);
+        // Compute errors (assuming desired pitch and roll are zero)
+        float errorPitch = adjustedPitch;
+        float errorRoll = adjustedRoll;
 
-        // Digital hardstop DO NOT DELETE else it blows up
-        servo1Angle = constrain(servo1Angle, -30, 30);
-        servo2Angle = constrain(servo2Angle, -30, 30);
+        printf("Error pitch %lf, Error roll: %lf\n", errorPitch, errorRoll);
 
-        setServo1Angle(servo1Angle);
-        setServo2Angle(servo2Angle);
+        // Compute integral terms with saturation
+        integralPitch += errorPitch * deltaTime;
+        integralRoll += errorRoll * deltaTime;
+
+        // Apply integral saturation limits
+        integralPitch = constrain(integralPitch, -integralLimit, integralLimit);
+        integralRoll = constrain(integralRoll, -integralLimit, integralLimit);
+
+        // Compute derivative terms
+        float derivativePitch = (errorPitch - prevErrorPitch) / deltaTime;
+        float derivativeRoll = (errorRoll - prevErrorRoll) / deltaTime;
+
+        // Compute control outputs using the PID controller
+        float controlPitch = Kp_servo * errorPitch + Ki_servo * integralPitch + Kd_servo * derivativePitch;
+        float controlRoll = Kp_servo * errorRoll + Ki_servo * integralRoll + Kd_servo * derivativeRoll;
+
+        // Limit control outputs to ±25 degrees
+        controlPitch = constrain(controlPitch, -25, 25);
+        controlRoll = constrain(controlRoll, -25, 25);
+
+        // Set the servo angles
+        setServo1Angle(controlPitch);
+        setServo2Angle(controlRoll);
+
+        // Update previous errors
+        prevErrorPitch = errorPitch;
+        prevErrorRoll = errorRoll;
     }
 }
 

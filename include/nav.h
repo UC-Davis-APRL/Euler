@@ -58,12 +58,46 @@ public:
 /*
     Start filter at specified update rate
 */
+/*
+    Start filter at specified update rate
+    Wait until pitch or roll error is less than 3 degrees for 5 seconds
+*/
 inline void Nav::init()
 {
     Serial.println(F("[NAV] Initializing..."));
     filter.begin(FILTER_UPDATE_RATE_HZ);
+    Serial.println(F("[NAV] Waiting for convergence..."));
+
+    unsigned long stableStartTime = 0;
+    bool stable = false;
+
+    while (!stable)
+    {
+        updateFilter();
+        updateIMU();
+        printf("Pitch %lf, Roll: %lf\n", pitch, roll);
+        if (abs(pitch) < 2.0 && abs(roll) < 2.0)
+        {
+            if (stableStartTime == 0)
+            {
+                stableStartTime = millis();
+            }
+            else if (millis() - stableStartTime >= 5000)
+            {
+                stable = true;
+            }
+        }
+        else
+        {
+            stableStartTime = 0;
+        }
+
+        delay(100);
+    }
+    Serial.println(F("[NAV] Convergence complete!"));
     Serial.println(F("[NAV] Initialization complete!"));
 }
+
 
 /*
     Update filter with latest sensor events

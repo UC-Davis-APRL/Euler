@@ -15,8 +15,8 @@
 #include <nav.h>
 
 #define MAVLINK_UPDATE_RATE_HZ 20
-#define PRINT_IMU
-#define PRINT_GNSS
+// #define PRINT_IMU
+// #define PRINT_GNSS
 
 class Comms
 {

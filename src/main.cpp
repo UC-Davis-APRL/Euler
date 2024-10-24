@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <TeensyThreads.h>
 #include <sensors.h>
 #include <nav.h>
 #include <guidance.h>
@@ -7,6 +6,7 @@
 #include <comms.h>
 #include <data.h>
 #include <Servo.h>
+
 /*
     Modules (enable or disable by commenting out)
     - Sensors: Provides access to IMU, GNSS
@@ -27,17 +27,17 @@ Control control = Control(&vehicle, &nav, &guidance);
 Comms comms = Comms(&sensors, &vehicle, &nav);
 Data data = Data(&sensors, &vehicle, &nav);
 
-/*
-    Low priority thread, less CPU time, yields to primary loop.
-*/
-void lowPriority()
-{
-    while (true)
-    {
-        comms.run();
-        data.log();
-        threads.delay(10);
-    }
+void sequenceA() {
+    // control.arm();
+    Serial.println(F("[SEQUENCE A] Starting sequence A"));
+    delay(6000);
+    Serial.println(F("[SEQUENCE A] Testing rotor A .5 speed"));
+    control.setMotor1SpeedTest(128); // Bottom, causes clockwise torque
+    control.setMotor2SpeedTest(158); // Top, causes counter-clockwise torque
+    delay(10000);
+    control.setMotor1SpeedTest(0);
+    control.setMotor2SpeedTest(0);
+    Serial.println(F("[SEQUENCE A] Sequence A complete"));
 }
 
 void setup()
@@ -60,7 +60,6 @@ void setup()
     comms.init();
     data.init();
 
-    threads.addThread(lowPriority);
     Serial.println(F("[MAIN] Initialization complete!"));
 }
 
@@ -70,4 +69,7 @@ void loop()
     nav.run();
     guidance.run();
     control.run();
+
+    comms.run();
+    data.log();
 }
