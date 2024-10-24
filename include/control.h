@@ -32,19 +32,35 @@ private:
     int usMin = 1000;
     int usMax = 2000;
 
-    // PID controller gains
+    // PID controller gains for servos
     float Kp_servo = 2.0;
     float Ki_servo = 0.0;
     float Kd_servo = 0.0;
 
-    // PID controller variables
+    // PID controller variables for servos
     float integralPitch = 0;
     float integralRoll = 0;
     float prevErrorPitch = 0;
     float prevErrorRoll = 0;
 
-    // Integral saturation limit
+    // Integral saturation limit for servos
     float integralLimit = 5.0;
+
+    // PID controller gains for altitude
+    float Kp_altitude = 10.0;   // Adjusted gain for better response
+    float Ki_altitude = 0.5;    // Adjusted gain for integral action
+    float Kd_altitude = 0.5;   // Added derivative gain
+
+    // PID controller variables for altitude
+    float integralAltitude = 0;
+    float prevErrorAltitude = 0;
+
+    // Altitude control variables
+    float targetHeight = 0.5;
+    int motorSpeed1 = 78;
+    int motorSpeed2 = 108;
+    bool altitude_control_on = false;
+    int motorSpeedChangeLimit = 2; // Max change per control loop (integer)
 
     // Timing variables
     unsigned long timestamp;
@@ -65,6 +81,7 @@ public:
     void setMotor1Speed(float speed);
     void setMotor2Speed(float speed);
     void armMotor(Servo &motor, int min, int max);
+    void altitudeControl(bool on_off);
 
     bool lock_gimbal = false;
     bool motor_armed = false;
@@ -132,6 +149,23 @@ inline void Control::setServo2Angle(float angle)
     servo2.write(relativeAngle);
 }
 
+inline void Control::altitudeControl(bool on_off)
+{
+    altitude_control_on = on_off;
+    if (on_off)
+    {
+        // Initialize altitude PID variables
+        integralAltitude = 0;
+        prevErrorAltitude = 0;
+        motorSpeed1 = 98;
+        motorSpeed2 = 108;
+
+        // Set initial motor speeds
+        setMotor1SpeedTest(motorSpeed1);
+        setMotor2SpeedTest(motorSpeed2);
+    }
+}
+
 inline void Control::run()
 {
     if ((millis() - timestamp) < (1000 / CONTROL_UPDATE_RATE_HZ))
@@ -146,6 +180,49 @@ inline void Control::run()
     }
     timestamp = currentTime;
 
+    if (altitude_control_on)
+    {
+        // Altitude PID control
+        float errorAltitude = targetHeight - nav->height;
+
+        // Update integral term with anti-windup
+        integralAltitude += errorAltitude * deltaTime;
+        integralAltitude = constrain(integralAltitude, -50, 50); // Adjust limits as needed
+
+        // Compute derivative term
+        float derivativeAltitude = (errorAltitude - prevErrorAltitude) / deltaTime;
+
+        // Compute control output
+        float controlAltitude = Kp_altitude * errorAltitude + Ki_altitude * integralAltitude + Kd_altitude * derivativeAltitude;
+
+        // Update previous error
+        prevErrorAltitude = errorAltitude;
+
+        // Adjust motor speeds with rate limiting
+        int desiredChange = (int)(controlAltitude);
+
+        // Apply rate limit per control loop
+        int maxChangePerLoop = motorSpeedChangeLimit; // Max change per loop (integer)
+        if (desiredChange > maxChangePerLoop)
+            desiredChange = maxChangePerLoop;
+        else if (desiredChange < -maxChangePerLoop)
+            desiredChange = -maxChangePerLoop;
+
+        // Adjust motor speeds
+        motorSpeed1 += desiredChange;
+        motorSpeed2 += desiredChange;
+
+        // Ensure motor speeds are within acceptable limits (e.g., 0 to 180)
+        motorSpeed1 = constrain(motorSpeed1, 0, 180);
+        motorSpeed2 = constrain(motorSpeed2, 0, 180);
+
+        printf("Height: %lf, Error: %lf, Control Output: %lf, Motor Speeds: %d, %d \n", nav->height, errorAltitude, controlAltitude, motorSpeed1, motorSpeed2);
+
+        // Set motor speeds
+        setMotor1SpeedTest(motorSpeed1);    
+        setMotor2SpeedTest(motorSpeed2);
+    }
+
     if (lock_gimbal)
     {
         setServo1Angle(0);
@@ -157,8 +234,6 @@ inline void Control::run()
         float pitch = nav->roll;
         float roll = nav->pitch;
 
-        printf("Pitch %lf, Roll: %lf\n", pitch, roll);
-
         // Compensate for the IMU being at a 45-degree angle (if necessary)
         float adjustedPitch = pitch * cos(PI / 4) - roll * sin(PI / 4);
         float adjustedRoll = pitch * sin(PI / 4) + roll * cos(PI / 4);
@@ -166,8 +241,6 @@ inline void Control::run()
         // Compute errors (assuming desired pitch and roll are zero)
         float errorPitch = adjustedPitch;
         float errorRoll = adjustedRoll;
-
-        printf("Error pitch %lf, Error roll: %lf\n", errorPitch, errorRoll);
 
         // Compute integral terms with saturation
         integralPitch += errorPitch * deltaTime;
@@ -185,9 +258,9 @@ inline void Control::run()
         float controlPitch = Kp_servo * errorPitch + Ki_servo * integralPitch + Kd_servo * derivativePitch;
         float controlRoll = Kp_servo * errorRoll + Ki_servo * integralRoll + Kd_servo * derivativeRoll;
 
-        // Limit control outputs to ±25 degrees
-        controlPitch = constrain(controlPitch, -25, 25);
-        controlRoll = constrain(controlRoll, -25, 25);
+        // Limit control outputs to ±20 degrees
+        controlPitch = constrain(controlPitch, -20, 20);
+        controlRoll = constrain(controlRoll, -20, 20);
 
         // Set the servo angles
         setServo1Angle(controlPitch);

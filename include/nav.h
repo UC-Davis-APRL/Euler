@@ -25,6 +25,7 @@ Adafruit_NXPSensorFusion filter;
 #define FILTER_UPDATE_RATE_HZ 100
 #define IMU_UPDATE_RATE_HZ 100
 #define GNSS_UPDATE_RATE_HZ 1
+#define HEIGHT_UPDATE_RATE_HZ 10  // Update rate for the ultrasonic sensor
 
 // #define AHRS_DEBUG_OUTPUT
 
@@ -35,9 +36,17 @@ private:
     int filterTimestamp;
     int imuTimestamp;
     int gnssTimestamp;
+    int heightTimestamp;
+
     void updateFilter();
     void updateIMU();
     void updateGNSS();
+    void updateHeight();
+
+    // Ultrasonic sensor variables
+    static const int NUM_HEIGHT_READINGS = 1;
+    float heightReadings[NUM_HEIGHT_READINGS];
+    int heightIndex;
 
 public:
     // IMU
@@ -50,6 +59,9 @@ public:
     int gnss_fix_type;
     int gnss_satellites;
 
+    // Height measurement
+    float height;  // Height in meters
+
     Nav(Sensors *sensors) : sensors(sensors) {}
     void init();
     void run();
@@ -57,16 +69,26 @@ public:
 
 /*
     Start filter at specified update rate
-*/
-/*
-    Start filter at specified update rate
-    Wait until pitch or roll error is less than 3 degrees for 5 seconds
+    Wait until pitch or roll error is less than 2 degrees for 5 seconds
 */
 inline void Nav::init()
 {
     Serial.println(F("[NAV] Initializing..."));
     filter.begin(FILTER_UPDATE_RATE_HZ);
     Serial.println(F("[NAV] Waiting for convergence..."));
+
+    // Initialize ultrasonic sensor pins
+    pinMode(33, OUTPUT); // Trigger pin
+    pinMode(34, INPUT);  // Echo pin
+
+    // Initialize height readings
+    heightIndex = 0;
+    heightTimestamp = 0;
+    for (int i = 0; i < NUM_HEIGHT_READINGS; i++)
+    {
+        heightReadings[i] = 0.0;
+    }
+    height = 0.0;
 
     unsigned long stableStartTime = 0;
     bool stable = false;
@@ -75,7 +97,6 @@ inline void Nav::init()
     {
         updateFilter();
         updateIMU();
-        printf("Pitch %lf, Roll: %lf\n", pitch, roll);
         if (abs(pitch) < 2.0 && abs(roll) < 2.0)
         {
             if (stableStartTime == 0)
@@ -94,10 +115,10 @@ inline void Nav::init()
 
         delay(100);
     }
+    printf("Pitch %lf, Roll: %lf\n", pitch, roll);
     Serial.println(F("[NAV] Convergence complete!"));
     Serial.println(F("[NAV] Initialization complete!"));
 }
-
 
 /*
     Update filter with latest sensor events
@@ -185,11 +206,69 @@ inline void Nav::updateGNSS()
     alt = sensors->gnss.getAltitudeMSL() / 1000.0;
 }
 
+/*
+    Update height measurement from ultrasonic sensor
+*/
+inline void Nav::updateHeight()
+{
+    if ((millis() - heightTimestamp) < (1000 / HEIGHT_UPDATE_RATE_HZ))
+    {
+        return;
+    }
+    heightTimestamp = millis();
+
+    // Send trigger pulse
+    digitalWrite(33, LOW);
+    delayMicroseconds(2);
+    digitalWrite(33, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(33, LOW);
+
+    // Read echo pulse duration
+    unsigned long duration = pulseIn(34, HIGH, 30000); // Timeout after 30ms
+
+    if (duration == 0)
+    {
+        // No echo received; skip this reading
+        return;
+    }
+
+    // Calculate distance in meters (Speed of sound = 343 m/s)
+    float distance = (duration * 0.000343) / 2.0; // Convert microseconds to seconds and calculate distance
+
+    // Store the reading in the buffer
+    heightReadings[heightIndex] = distance;
+
+    // Update index
+    heightIndex = (heightIndex + 1) % NUM_HEIGHT_READINGS;
+
+    // Compute the average
+    float sum = 0.0;
+    int validReadings = 0;
+    for (int i = 0; i < NUM_HEIGHT_READINGS; i++)
+    {
+        if (heightReadings[i] > 0)
+        {
+            sum += heightReadings[i];
+            validReadings++;
+        }
+    }
+
+    if (validReadings > 0)
+    {
+        height = sum / validReadings;
+    }
+}
+
+/*
+    Main run loop to update all sensor data
+*/
 inline void Nav::run()
 {
     updateFilter();
     updateIMU();
     updateGNSS();
+    updateHeight();
 }
 
 #endif
