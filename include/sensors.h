@@ -13,7 +13,6 @@
 #include <Adafruit_LSM6DSOX.h>
 #include <SparkFun_u-blox_GNSS_v3.h>
 #include <Adafruit_Sensor_Calibration.h>
-#include <InternalTemperature.h>
 
 // #define PRINT_IMU_DETAILS
 

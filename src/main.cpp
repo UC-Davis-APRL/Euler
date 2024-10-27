@@ -24,7 +24,7 @@ Nav nav = Nav(&sensors);
 Guidance guidance = Guidance(&vehicle, &nav);
 Control control = Control(&vehicle, &nav, &guidance);
 
-Comms comms = Comms(&sensors, &vehicle, &nav);
+// Comms comms = Comms(&sensors, &vehicle, &nav);
 Data data = Data(&sensors, &vehicle, &nav);
 
 enum SequenceAState {
@@ -96,15 +96,13 @@ void setup()
     guidance.init();
     control.init();
 
-    comms.init();
+    // comms.init();
     data.init();
 
     Serial.println(F("[MAIN] Initialization complete!"));
-
-    control.arm();
+    // control.arm();
     delay(6000);
     sequenceAState = SEQ_A_START;
-    // sequenceBState = SEQ_B_START;
 }
 
 void loop()
@@ -114,7 +112,7 @@ void loop()
     guidance.run();
     control.run();
 
-    comms.run();
+    // comms.run();
     data.log();
 
     sequenceA_run();

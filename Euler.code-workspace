@@ -3,6 +3,10 @@
 		{
 			"name": "Euler",
 			"path": "."
+		},
+		{
+			"name": "Test Project",
+			"path": "../../Documents/PlatformIO/Projects/Test Project"
 		}
 	],
 	"settings": {

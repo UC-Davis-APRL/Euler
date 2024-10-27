@@ -9,7 +9,7 @@
 #ifndef NAV_H
 #define NAV_H
 
-#include "Sensors.h"
+#include "sensors.h"
 #include <Adafruit_Sensor_Calibration.h>
 #include <Adafruit_AHRS.h>
 
@@ -91,7 +91,7 @@ inline void Nav::init()
     height = 0.0;
 
     unsigned long stableStartTime = 0;
-    bool stable = false;
+    bool stable = true;
 
     while (!stable)
     {
