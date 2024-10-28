@@ -33,9 +33,9 @@ private:
     int usMax = 2000;
 
     // PID controller gains for servos
-    float Kp_servo = 0.5;
-    float Ki_servo = 0.0;
-    float Kd_servo = 0.3;
+    float Kp_servo = 0.12;
+    float Ki_servo = 0.016;
+    float Kd_servo = 0.24;
 
     // PID controller variables for servos
     float integralPitch = 0;
@@ -48,7 +48,7 @@ private:
 
     // PID controller gains for altitude
     float Kp_altitude = 30.0;   // Adjusted gain for better response
-    float Ki_altitude = 0.5;    // Adjusted gain for integral action
+    float Ki_altitude = 5.0;    // Adjusted gain for integral action
     float Kd_altitude = 0.9;   // Added derivative gain
 
     // PID controller variables for altitude
@@ -180,7 +180,7 @@ inline void Control::run()
     if (altitude_control_on)
     {
         // Altitude PID control
-        float errorAltitude = targetHeight - nav->height;
+        float errorAltitude = targetHeight - nav->heightRaw;
 
         // Update integral term with anti-windup
         integralAltitude += errorAltitude * deltaTime;
@@ -199,14 +199,15 @@ inline void Control::run()
         int desiredChange = (int)(controlAltitude);
 
         // Adjust motor speeds
-        motorSpeed1 = 140 + desiredChange;
-        motorSpeed2 = 140 + desiredChange;
+        motorSpeed1 = 98 + desiredChange;
+        motorSpeed2 = 108 + desiredChange;
 
         // Ensure motor speeds are within acceptable limits (e.g., 0 to 180)
         motorSpeed1 = constrain(motorSpeed1, 0, 170);
         motorSpeed2 = constrain(motorSpeed2, 0, 170);
 
-        printf("Height: %lf, Error: %lf, Control Output: %lf, Motor Speeds: %d, %d \n", nav->height, errorAltitude, controlAltitude, motorSpeed1, motorSpeed2);
+        printf("Height: %lf, Error: %lf, Control Output: %lf, Motor Setpoints: %d, %d \n", nav->heightRaw, errorAltitude, controlAltitude, motorSpeed1, motorSpeed2);
+        printf("Velocity X: %lf Y: %lf Z: %lf, Position X: %lf Y: %lf Z: %lf \n", nav->vx,nav->vy,nav->vz,nav->px,nav->py,nav->pz);
 
         // Set motor speeds
         setMotor1Speed(motorSpeed1);    

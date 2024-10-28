@@ -25,7 +25,7 @@ Adafruit_NXPSensorFusion filter;
 #define FILTER_UPDATE_RATE_HZ 100
 #define IMU_UPDATE_RATE_HZ 100
 #define GNSS_UPDATE_RATE_HZ 1
-#define HEIGHT_UPDATE_RATE_HZ 10  // Update rate for the ultrasonic sensor
+#define INTEGRAL_UPDATE_RATE_HZ 100
 
 // #define AHRS_DEBUG_OUTPUT
 
@@ -36,17 +36,30 @@ private:
     int filterTimestamp;
     int imuTimestamp;
     int gnssTimestamp;
-    int heightTimestamp;
+    unsigned long integralTimestamp;
 
     void updateFilter();
     void updateIMU();
     void updateGNSS();
-    void updateHeight();
 
-    // Ultrasonic sensor variables
-    static const int NUM_HEIGHT_READINGS = 1;
-    float heightReadings[NUM_HEIGHT_READINGS];
-    int heightIndex;
+    // Gravity vector components
+    float gX, gY, gZ;
+
+    // EKF variables
+    float x[6];         // State vector: [px, py, pz, vx, vy, vz]
+    float P[6][6];      // Covariance matrix
+    float Q[6][6];      // Process noise covariance
+    float R[3][3];      // Measurement noise covariance
+    unsigned long previousTime;
+
+    void predict(float dt);
+    void updateWithGNSS();
+    void latLonToXY(float lat, float lon, float *x, float *y);
+
+    // Reference coordinates for local frame
+    float refLat;
+    float refLon;
+    bool refSet;
 
 public:
     // IMU
@@ -59,10 +72,18 @@ public:
     int gnss_fix_type;
     int gnss_satellites;
 
-    // Height measurement
-    float height;  // Height in meters
+    float heightRaw;
 
-    Nav(Sensors *sensors) : sensors(sensors) {}
+    // Velocity & Position (Filtered by EKF)
+    float vx, vy, vz;
+    float px, py, pz;
+
+    Nav(Sensors *sensors)
+        : sensors(sensors), filterTimestamp(0), imuTimestamp(0), gnssTimestamp(0), integralTimestamp(0),
+          gX(0.0f), gY(0.0f), gZ(0.0f), previousTime(0),
+          refLat(0.0f), refLon(0.0f), refSet(false),
+          vx(0.0f), vy(0.0f), vz(0.0f), px(0.0f), py(0.0f), pz(0.0f) {}
+
     void init();
     void run();
 };
@@ -75,24 +96,10 @@ inline void Nav::init()
 {
     Serial.println(F("[NAV] Initializing..."));
     filter.begin(FILTER_UPDATE_RATE_HZ);
+
     Serial.println(F("[NAV] Waiting for convergence..."));
-
-    // Initialize ultrasonic sensor pins
-    pinMode(33, OUTPUT); // Trigger pin
-    pinMode(34, INPUT);  // Echo pin
-
-    // Initialize height readings
-    heightIndex = 0;
-    heightTimestamp = 0;
-    for (int i = 0; i < NUM_HEIGHT_READINGS; i++)
-    {
-        heightReadings[i] = 0.0;
-    }
-    height = 0.0;
-
     unsigned long stableStartTime = 0;
-    bool stable = true;
-
+    bool stable = false;
     while (!stable)
     {
         updateFilter();
@@ -115,8 +122,94 @@ inline void Nav::init()
 
         delay(100);
     }
-    printf("Pitch %lf, Roll: %lf\n", pitch, roll);
+    Serial.printf("Pitch: %f, Roll: %f\n", pitch, roll);
     Serial.println(F("[NAV] Convergence complete!"));
+
+    // Implement calibration after the convergence stage
+    Serial.println(F("[NAV] Starting calibration to eliminate drift..."));
+
+    const unsigned long calibrationDuration = 5000; // 5 seconds
+    unsigned long calibrationStartTime = millis();
+    unsigned int calibrationSamples = 0;
+    float sumAx = 0.0f, sumAy = 0.0f, sumAz = 0.0f;
+
+    while (millis() - calibrationStartTime < calibrationDuration)
+    {
+        updateFilter();
+        updateIMU();
+
+        // Accumulate accelerometer readings
+        sumAx += ax;
+        sumAy += ay;
+        sumAz += az;
+        calibrationSamples++;
+
+        delay(10); // Small delay to prevent overwhelming the loop
+    }
+
+    // Calculate average gravity vector
+    gX = sumAx / calibrationSamples;
+    gY = sumAy / calibrationSamples;
+    gZ = sumAz / calibrationSamples;
+
+    Serial.println(F("[NAV] Calibration complete!"));
+    Serial.print("Calibration Vector - gX: ");
+    Serial.print(gX);
+    Serial.print(", gY: ");
+    Serial.print(gY);
+    Serial.print(", gZ: ");
+    Serial.println(gZ);
+
+    Serial.println(F("[NAV] Initializing GNSS/ Position Extended Kalman Filter"));
+
+    Serial.println(F("[NAV] Initializing State Vectors"));
+
+    // Initialize EKF variables
+    // Initialize state vector x
+    for (int i = 0; i < 6; i++)
+    {
+        x[i] = 0.0f;
+    }
+    Serial.println(F("[NAV] Initializing Covariance Matrix P"));
+
+    // Initialize covariance matrix P to identity times a small value
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            P[i][j] = (i == j) ? 1.0f : 0.0f;
+        }
+    }
+    Serial.println(F("[NAV] Initializing Process Noise Covariance Matrix Q"));
+
+    // Initialize process noise covariance Q
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            Q[i][j] = 0.0f;
+        }
+    }
+    Q[0][0] = Q[1][1] = Q[2][2] = 0.1f;  // Position process noise
+    Q[3][3] = Q[4][4] = Q[5][5] = 0.1f;  // Velocity process noise
+
+    Serial.println(F("[NAV] Initializing Measurement Noise Covariance Matrix R"));
+    // Initialize measurement noise covariance R
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            R[i][j] = 0.0f;
+        }
+    }
+    R[0][0] = R[1][1] = 5.0f; // GNSS horizontal position measurement noise
+    R[2][2] = 10.0f;          // GNSS vertical position measurement noise
+
+    Serial.println(F("[NAV] EKF Initialization Complete"));
+
+    // Initialize previousTime
+    previousTime = micros();
+
     Serial.println(F("[NAV] Initialization complete!"));
 }
 
@@ -175,11 +268,26 @@ inline void Nav::updateIMU()
     }
     imuTimestamp = millis();
 
+    // Ignore this
+    sensors->updateUltrasonic();
+    heightRaw = sensors->heightRaw;
+    // Will delete
+
     roll = filter.getRoll();
     pitch = filter.getPitch();
     heading = filter.getYaw();
     filter.getQuaternion(&qw, &qx, &qy, &qz);
-    // filter.getLinearAcceleration(&ax, &ay, &az);
+    filter.getLinearAcceleration(&ax, &ay, &az);
+
+    const float GRAVITY = 9.80665f;
+    ax *= GRAVITY;
+    ay *= GRAVITY;
+    az *= GRAVITY;
+
+    // Subtract gravity vector to get true linear acceleration
+    ax -= gX;
+    ay -= gY;
+    az -= gZ;
 }
 
 /*
@@ -201,62 +309,274 @@ inline void Nav::updateGNSS()
     gnss_satellites = sensors->gnss.getSIV();
     gnss_fix_type = sensors->gnss.getFixType();
 
-    lat = sensors->gnss.getLatitude() / 1e7;
-    lon = sensors->gnss.getLongitude() / 1e7;
-    alt = sensors->gnss.getAltitudeMSL() / 1000.0;
+    if (gnss_fix_type >= 2) // Assuming fix_type >= 2 means we have valid data
+    {
+        lat = sensors->gnss.getLatitude() / 1e7;
+        lon = sensors->gnss.getLongitude() / 1e7;
+        alt = sensors->gnss.getAltitudeMSL() / 1000.0;
+
+        if (!refSet)
+        {
+            refLat = lat;
+            refLon = lon;
+            refSet = true;
+            Serial.println(F("[NAV] Reference location set."));
+        }
+    }
 }
 
 /*
-    Update height measurement from ultrasonic sensor
+    Convert latitude and longitude to local Cartesian coordinates
 */
-inline void Nav::updateHeight()
+inline void Nav::latLonToXY(float lat, float lon, float *x, float *y)
 {
-    if ((millis() - heightTimestamp) < (1000 / HEIGHT_UPDATE_RATE_HZ))
+    // Simple equirectangular approximation
+    const float degToRad = 3.14159265358979323846f / 180.0f;
+    float dLat = (lat - refLat) * degToRad;
+    float dLon = (lon - refLon) * degToRad;
+    float latRad = refLat * degToRad;
+
+    const float R = 6371000.0f; // Earth radius in meters
+
+    *x = R * dLon * cos(latRad);
+    *y = R * dLat;
+}
+
+/*
+    EKF Prediction Step
+*/
+inline void Nav::predict(float dt)
+{
+    // Update the state vector x
+    // x[0] = px
+    // x[1] = py
+    // x[2] = pz
+    // x[3] = vx
+    // x[4] = vy
+    // x[5] = vz
+
+    // Predict position
+    x[0] += x[3] * dt + 0.5f * ax * dt * dt;
+    x[1] += x[4] * dt + 0.5f * ay * dt * dt;
+    x[2] += x[5] * dt + 0.5f * az * dt * dt;
+
+    // Predict velocity
+    x[3] += ax * dt;
+    x[4] += ay * dt;
+    x[5] += az * dt;
+
+    // State transition matrix F
+    float F[6][6] = {
+        {1, 0, 0, dt, 0, 0},
+        {0, 1, 0, 0, dt, 0},
+        {0, 0, 1, 0, 0, dt},
+        {0, 0, 0, 1, 0, 0},
+        {0, 0, 0, 0, 1, 0},
+        {0, 0, 0, 0, 0, 1}};
+
+    // Compute P = F * P * F^T + Q
+    // First, compute F * P
+    float FP[6][6];
+    for (int i = 0; i < 6; i++)
     {
-        return;
-    }
-    heightTimestamp = millis();
-
-    // Send trigger pulse
-    digitalWrite(33, LOW);
-    delayMicroseconds(2);
-    digitalWrite(33, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(33, LOW);
-
-    // Read echo pulse duration
-    unsigned long duration = pulseIn(34, HIGH, 30000); // Timeout after 30ms
-
-    if (duration == 0)
-    {
-        // No echo received; skip this reading
-        return;
-    }
-
-    // Calculate distance in meters (Speed of sound = 343 m/s)
-    float distance = (duration * 0.000343) / 2.0; // Convert microseconds to seconds and calculate distance
-
-    // Store the reading in the buffer
-    heightReadings[heightIndex] = distance;
-
-    // Update index
-    heightIndex = (heightIndex + 1) % NUM_HEIGHT_READINGS;
-
-    // Compute the average
-    float sum = 0.0;
-    int validReadings = 0;
-    for (int i = 0; i < NUM_HEIGHT_READINGS; i++)
-    {
-        if (heightReadings[i] > 0)
+        for (int j = 0; j < 6; j++)
         {
-            sum += heightReadings[i];
-            validReadings++;
+            FP[i][j] = 0.0f;
+            for (int k = 0; k < 6; k++)
+            {
+                FP[i][j] += F[i][k] * P[k][j];
+            }
         }
     }
 
-    if (validReadings > 0)
+    // Then compute P = FP * F^T + Q
+    for (int i = 0; i < 6; i++)
     {
-        height = sum / validReadings;
+        for (int j = 0; j < 6; j++)
+        {
+            P[i][j] = 0.0f;
+            for (int k = 0; k < 6; k++)
+            {
+                P[i][j] += FP[i][k] * F[j][k]; // Note F^T[j][k] = F[k][j]
+            }
+            P[i][j] += Q[i][j];
+        }
+    }
+}
+
+/*
+    EKF Update Step with GNSS Data
+*/
+inline void Nav::updateWithGNSS()
+{
+    // Measurement vector z
+    float px_meas, py_meas;
+    latLonToXY(lat, lon, &px_meas, &py_meas);
+    float pz_meas = alt; // Assuming alt is in meters
+
+    float z[3] = {px_meas, py_meas, pz_meas};
+
+    // Measurement matrix H
+    float H[3][6] = {
+        {1, 0, 0, 0, 0, 0}, // Position x
+        {0, 1, 0, 0, 0, 0}, // Position y
+        {0, 0, 1, 0, 0, 0}  // Position z
+    };
+
+    // Compute innovation y = z - H * x
+    float Hx[3];
+    for (int i = 0; i < 3; i++)
+    {
+        Hx[i] = 0.0f;
+        for (int j = 0; j < 6; j++)
+        {
+            Hx[i] += H[i][j] * x[j];
+        }
+    }
+
+    float y[3];
+    for (int i = 0; i < 3; i++)
+    {
+        y[i] = z[i] - Hx[i];
+    }
+
+    // Compute S = H * P * H^T + R
+    float HP[3][6];
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            HP[i][j] = 0.0f;
+            for (int k = 0; k < 6; k++)
+            {
+                HP[i][j] += H[i][k] * P[k][j];
+            }
+        }
+    }
+
+    float S[3][3];
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            S[i][j] = 0.0f;
+            for (int k = 0; k < 6; k++)
+            {
+                S[i][j] += HP[i][k] * H[j][k]; // Note H^T[j][k] = H[k][j]
+            }
+            S[i][j] += R[i][j];
+        }
+    }
+
+    // Compute Kalman gain K = P * H^T * S^{-1}
+    float PHt[6][3];
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            PHt[i][j] = 0.0f;
+            for (int k = 0; k < 6; k++)
+            {
+                PHt[i][j] += P[i][k] * H[j][k]; // H^T[j][k] = H[k][j]
+            }
+        }
+    }
+
+    // Compute S^{-1} (inverse of 3x3 matrix)
+    float detS = S[0][0] * (S[1][1] * S[2][2] - S[1][2] * S[2][1]) -
+                 S[0][1] * (S[1][0] * S[2][2] - S[1][2] * S[2][0]) +
+                 S[0][2] * (S[1][0] * S[2][1] - S[1][1] * S[2][0]);
+
+    if (fabs(detS) < 1e-6)
+    {
+        // Singular matrix, cannot invert
+        Serial.println(F("[NAV] Singular matrix in EKF update."));
+        return;
+    }
+
+    float invDetS = 1.0f / detS;
+
+    float S_inv[3][3];
+    S_inv[0][0] = (S[1][1] * S[2][2] - S[1][2] * S[2][1]) * invDetS;
+    S_inv[0][1] = (S[0][2] * S[2][1] - S[0][1] * S[2][2]) * invDetS;
+    S_inv[0][2] = (S[0][1] * S[1][2] - S[0][2] * S[1][1]) * invDetS;
+    S_inv[1][0] = (S[1][2] * S[2][0] - S[1][0] * S[2][2]) * invDetS;
+    S_inv[1][1] = (S[0][0] * S[2][2] - S[0][2] * S[2][0]) * invDetS;
+    S_inv[1][2] = (S[0][2] * S[1][0] - S[0][0] * S[1][2]) * invDetS;
+    S_inv[2][0] = (S[1][0] * S[2][1] - S[1][1] * S[2][0]) * invDetS;
+    S_inv[2][1] = (S[0][1] * S[2][0] - S[0][0] * S[2][1]) * invDetS;
+    S_inv[2][2] = (S[0][0] * S[1][1] - S[0][1] * S[1][0]) * invDetS;
+
+    // Compute K = P * H^T * S^{-1}
+    float K[6][3];
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            K[i][j] = 0.0f;
+            for (int k = 0; k < 3; k++)
+            {
+                K[i][j] += PHt[i][k] * S_inv[k][j];
+            }
+        }
+    }
+
+    // Update state x = x + K * y
+    for (int i = 0; i < 6; i++)
+    {
+        float correction = 0.0f;
+        for (int j = 0; j < 3; j++)
+        {
+            correction += K[i][j] * y[j];
+        }
+        x[i] += correction;
+    }
+
+    // Update covariance P = (I - K * H) * P
+    float KH[6][6];
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            KH[i][j] = 0.0f;
+            for (int k = 0; k < 3; k++)
+            {
+                KH[i][j] += K[i][k] * H[k][j];
+            }
+        }
+    }
+
+    // Compute (I - K * H)
+    float I_KH[6][6];
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            I_KH[i][j] = (i == j ? 1.0f : 0.0f) - KH[i][j];
+        }
+    }
+
+    // Update P = (I - K * H) * P
+    float newP[6][6];
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            newP[i][j] = 0.0f;
+            for (int k = 0; k < 6; k++)
+            {
+                newP[i][j] += I_KH[i][k] * P[k][j];
+            }
+        }
+    }
+
+    // Copy newP to P
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 6; j++)
+        {
+            P[i][j] = newP[i][j];
+        }
     }
 }
 
@@ -268,7 +588,31 @@ inline void Nav::run()
     updateFilter();
     updateIMU();
     updateGNSS();
-    updateHeight();
+
+    unsigned long now = micros();
+    float dt = (now - previousTime) / 1e6f;
+    if (dt > 0.1f)
+    {
+        dt = 0.1f; // Limit dt to prevent large jumps
+    }
+    previousTime = now;
+
+    // Perform EKF prediction step
+    predict(dt);
+
+    // If GNSS data is available and reference is set, perform EKF update step
+    if (gnss_fix_type >= 2 && refSet)
+    {
+        updateWithGNSS();
+    }
+
+    // Update public variables with the EKF estimates
+    px = x[0];
+    py = x[1];
+    pz = x[2];
+    vx = x[3];
+    vy = x[4];
+    vz = x[5];
 }
 
 #endif

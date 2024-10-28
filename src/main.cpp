@@ -65,8 +65,8 @@ void sequenceA_run() {
 
         case SEQ_A_DELAY2:
             if (millis() - sequenceATimer >= 20000) {
-                control.setMotor1SpeedTest(0);
-                control.setMotor2SpeedTest(0);
+                control.setMotor1Speed(0);
+                control.setMotor2Speed(0);
                 control.altitudeControl(false);
                 Serial.println(F("[SEQUENCE A] Sequence A complete"));
                 sequenceAState = SEQ_A_COMPLETE;
@@ -100,7 +100,7 @@ void setup()
     data.init();
 
     Serial.println(F("[MAIN] Initialization complete!"));
-    // control.arm();
+    control.arm();
     delay(6000);
     sequenceAState = SEQ_A_START;
 }
