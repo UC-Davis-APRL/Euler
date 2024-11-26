@@ -24,6 +24,7 @@ Nav nav = Nav(&sensors);
 Guidance guidance = Guidance(&vehicle, &nav);
 Control control = Control(&vehicle, &nav, &guidance);
 
+/* Begin Sequence A */
 enum SequenceAState {
     SEQ_A_IDLE,
     SEQ_A_START,
@@ -68,6 +69,7 @@ void sequenceA_run() {
             break;
     }
 }
+/* End Sequence A */
 
 void setup()
 {
@@ -76,13 +78,11 @@ void setup()
         yield();
     Serial.println(F("[MAIN] Initializing..."));
 
-    Wire.begin();
-    Wire.setClock(400000);
-
     sensors.init();
+    vehicle.init();
 
     nav.init();
-    // guidance.init();
+    guidance.init();
     control.init();
 
     Serial.println(F("[MAIN] Initialization complete!"));
@@ -95,7 +95,7 @@ void setup()
 void loop()
 {
     nav.run();
-    // guidance.run();
+    guidance.run();
     control.run();
 
     sequenceA_run();
