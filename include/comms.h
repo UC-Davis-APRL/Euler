@@ -102,9 +102,9 @@ inline void Comms::run()
     mavlink.accel_healthy(true);
 
     // Update navigational heading, pitch, roll
-    // mavlink.nav_hdg_rad(-nav->heading * DEG_TO_RAD);
-    // mavlink.nav_pitch_rad(nav->pitch * DEG_TO_RAD);
-    // mavlink.nav_roll_rad(-nav->roll * DEG_TO_RAD);
+    mavlink.nav_roll_rad(-nav->roll * DEG_TO_RAD);
+    mavlink.nav_pitch_rad(nav->pitch * DEG_TO_RAD);
+    mavlink.nav_hdg_rad(-nav->yaw * DEG_TO_RAD);
 
     // // Update GNSS health data
     // mavlink.gnss_healthy(true);

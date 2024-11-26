@@ -228,8 +228,8 @@ inline void Control::runAltitudeController()
     int desiredChange = (int)(controlAltitude);
 
     // Adjust motor speeds
-    motorSpeed1 = 118 + desiredChange;
-    motorSpeed2 = 118 + desiredChange;
+    motorSpeed1 = 40 + desiredChange;
+    motorSpeed2 = 40 + desiredChange;
 
     // Ensure motor speeds are within acceptable limits (e.g., 0 to 155)
     motorSpeed1 = constrain(motorSpeed1, 0, 155);
