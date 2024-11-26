@@ -14,8 +14,9 @@
 #include <guidance.h>
 #include <Servo.h>
 
-#define ALTITUDE_CONTROL_RATE_HZ 10
-#define ATTITUDE_CONTROL_RATE_HZ 40
+
+#define ALTITUDE_CONTROL_RATE_HZ 20
+#define ATTITUDE_CONTROL_RATE_HZ 30
 
 class Control {
 private:
@@ -30,8 +31,8 @@ private:
     Servo motor2;
 
     // Initial servo positions (zeros)
-    int initialPosition1 = 138;
-    int initialPosition2 = 160;
+    int initialPosition1 = 160;
+    int initialPosition2 = 138;
 
     // Initial motor speeds (minimized z torque)
     int motorSpeed1 = 0;
@@ -52,9 +53,9 @@ private:
     // float Kp_servo = 0.12;
     // float Ki_servo = 0.016;
     // float Kd_servo = 0.24;
-    float Kp_servo = 0.8;
-    float Ki_servo = 0.016;
-    float Kd_servo = 0.24;
+    float Kp_servo = 3;
+    float Ki_servo = 0;
+    float Kd_servo = 0;
     float integralLimit = 5.0;
 
     // Runtime variables (don't touch)
@@ -235,8 +236,6 @@ inline void Control::runAltitudeController()
     motorSpeed2 = constrain(motorSpeed2, 0, 155);
 
     printf("Height: %lf, Error: %lf, Control Output: %lf, Motor Setpoints: %d, %d \n", nav->height, errorAltitude, controlAltitude, motorSpeed1, motorSpeed2);
-    printf("Acc X: %lf, Acc Y: %lf, Acc Z: %lf \n", nav->ax, nav->ay, nav->az);
-    printf("Vel X: %lf, Vel Y: %lf, Vel Z: %lf \n", nav->vel.x, nav->vel.y, nav->vel.z);
 
     // Set motor speeds
     setMotor1Speed(motorSpeed1);
@@ -256,11 +255,12 @@ inline void Control::runAttitudeController()
     attitudeTimestamp = currentTime;
     float deltaTime = deltaTimeMicros / 1000000.0f; // Convert microseconds to seconds
 
-    float pitch = nav->pitch;
     float roll = nav->roll;
-
-    float errorPitch = pitch;
-    float errorRoll = roll;
+    float pitch = nav->pitch;
+    float yaw = nav->yaw;
+    
+    float errorPitch = -pitch;
+    float errorRoll = -roll;
 
     // Compute integral terms with saturation
     integralPitch += errorPitch * deltaTime;

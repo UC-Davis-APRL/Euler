@@ -17,15 +17,12 @@
     - Comms: Handles bidirectional radio link
     - Data: Handles onboard logging & flight data
 */
-Sensors sensors = Sensors();
 Vehicle vehicle = Vehicle();
+Sensors sensors = Sensors();
 
 Nav nav = Nav(&sensors);
 Guidance guidance = Guidance(&vehicle, &nav);
 Control control = Control(&vehicle, &nav, &guidance);
-
-// Comms comms = Comms(&sensors, &vehicle, &nav);
-Data data = Data(&sensors, &vehicle, &nav);
 
 enum SequenceAState {
     SEQ_A_IDLE,
@@ -45,12 +42,13 @@ void sequenceA_run() {
 
         case SEQ_A_START:
             Serial.println(F("[SEQUENCE A] Starting sequence A"));
+            Serial.println(F("[SEQUENCE A] 10 seconds until run..."));
             sequenceATimer = millis();
             sequenceAState = SEQ_A_MAIN;
             break;
 
         case SEQ_A_MAIN:
-            if (millis() - sequenceATimer >= 5000) {
+            if (millis() - sequenceATimer >= 10000) {
                 control.enableAltitudeControl(true);
                 sequenceATimer = millis();
                 sequenceAState = SEQ_A_END;
@@ -58,7 +56,7 @@ void sequenceA_run() {
             break;
 
         case SEQ_A_END:
-            if (millis() - sequenceATimer >= 15000) {
+            if (millis() - sequenceATimer == -1) {
                 control.enableAltitudeControl(false);
                 control.arm(false);
                 sequenceAState = SEQ_A_COMPLETE;
@@ -82,33 +80,23 @@ void setup()
     Wire.setClock(400000);
 
     sensors.init();
-    vehicle.init();
 
     nav.init();
-    guidance.init();
+    // guidance.init();
     control.init();
-
-    // comms.init();
-    data.init();
 
     Serial.println(F("[MAIN] Initialization complete!"));
 
     control.enableAttitudeControl(true);
-    control.enableAltitudeControl(true);
     // control.arm(true);
-    // delay(5000);
     // sequenceAState = SEQ_A_START;
 }
 
 void loop()
 {
-    vehicle.update();
     nav.run();
-    guidance.run();
+    // guidance.run();
     control.run();
-
-    // comms.run();
-    data.log();
 
     sequenceA_run();
 }

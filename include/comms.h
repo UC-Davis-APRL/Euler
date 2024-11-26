@@ -25,6 +25,7 @@ private:
     Vehicle *vehicle;
     Nav *nav;
     int timestamp;
+    bool enabled = false;
 
 public:
     bfs::MavLink<5, 10> mavlink;
@@ -72,6 +73,8 @@ inline void Comms::init()
 
     mavlink.SendStatusText(bfs::Severity::INFO, "MavLink Initialized");
     Serial.println(F("[COMMS] Initialization complete!"));
+
+    Serial1.begin(57600);
 }
 
 /*
@@ -81,7 +84,13 @@ inline void Comms::init()
 */
 inline void Comms::run()
 {
-    if ((millis() - timestamp) < (1000 / MAVLINK_UPDATE_RATE_HZ))
+    while (Serial1.available() > 0)
+    {
+        char incomingByte = Serial1.read();
+        Serial.write(incomingByte);
+    }
+
+    if ((millis() - timestamp) < (1000 / MAVLINK_UPDATE_RATE_HZ) || !enabled)
     {
         return;
     }
@@ -93,20 +102,20 @@ inline void Comms::run()
     mavlink.accel_healthy(true);
 
     // Update navigational heading, pitch, roll
-    mavlink.nav_hdg_rad(-nav->heading * DEG_TO_RAD);
-    mavlink.nav_pitch_rad(nav->pitch * DEG_TO_RAD);
-    mavlink.nav_roll_rad(-nav->roll * DEG_TO_RAD);
+    // mavlink.nav_hdg_rad(-nav->heading * DEG_TO_RAD);
+    // mavlink.nav_pitch_rad(nav->pitch * DEG_TO_RAD);
+    // mavlink.nav_roll_rad(-nav->roll * DEG_TO_RAD);
 
-    // Update GNSS health data
-    mavlink.gnss_healthy(true);
-    mavlink.gnss_fix(nav->gnss_fix_type);
-    mavlink.gnss_num_sats(nav->gnss_satellites);
-    mavlink.gnss_healthy(true);
+    // // Update GNSS health data
+    // mavlink.gnss_healthy(true);
+    // mavlink.gnss_fix(nav->gnss_fix_type);
+    // mavlink.gnss_num_sats(nav->gnss_satellites);
+    // mavlink.gnss_healthy(true);
 
-    // Update MavLink navigation lat, lon, alt
-    mavlink.nav_lat_rad(nav->lat * PI / 180);
-    mavlink.nav_lon_rad(nav->lon * PI / 180);
-    mavlink.nav_alt_msl_m(nav->alt);
+    // // Update MavLink navigation lat, lon, alt
+    // mavlink.nav_lat_rad(nav->lat * PI / 180);
+    // mavlink.nav_lon_rad(nav->lon * PI / 180);
+    // mavlink.nav_alt_msl_m(nav->alt);
 
     mavlink.Update();
 
