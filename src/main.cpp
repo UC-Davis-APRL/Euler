@@ -30,9 +30,8 @@ Data data = Data(&sensors, &vehicle, &nav);
 enum SequenceAState {
     SEQ_A_IDLE,
     SEQ_A_START,
-    SEQ_A_DELAY1,
-    SEQ_A_TEST_ROTORS,
-    SEQ_A_DELAY2,
+    SEQ_A_MAIN,
+    SEQ_A_END,
     SEQ_A_COMPLETE
 };
 
@@ -42,39 +41,32 @@ unsigned long sequenceATimer = 0;
 void sequenceA_run() {
     switch (sequenceAState) {
         case SEQ_A_IDLE:
-            // Waiting to start
             break;
 
         case SEQ_A_START:
             Serial.println(F("[SEQUENCE A] Starting sequence A"));
             sequenceATimer = millis();
-            sequenceAState = SEQ_A_DELAY1;
+            sequenceAState = SEQ_A_MAIN;
             break;
 
-        case SEQ_A_DELAY1:
-            if (millis() - sequenceATimer >= 6000) {
-                Serial.println(F("[SEQUENCE A] Testing rotor A .5 speed"));
-                control.altitudeControl(true);
-                // control.setMotor1SpeedTest(88);
-                // control.setMotor2SpeedTest(118);
-  
+        case SEQ_A_MAIN:
+            if (millis() - sequenceATimer >= 5000) {
+                control.enableAltitudeControl(true);
                 sequenceATimer = millis();
-                sequenceAState = SEQ_A_DELAY2;
+                sequenceAState = SEQ_A_END;
             }
             break;
 
-        case SEQ_A_DELAY2:
-            if (millis() - sequenceATimer >= 20000) {
-                control.setMotor1Speed(0);
-                control.setMotor2Speed(0);
-                control.altitudeControl(false);
-                Serial.println(F("[SEQUENCE A] Sequence A complete"));
+        case SEQ_A_END:
+            if (millis() - sequenceATimer >= 15000) {
+                control.enableAltitudeControl(false);
+                control.arm(false);
                 sequenceAState = SEQ_A_COMPLETE;
+                Serial.println(F("[SEQUENCE A] Sequence A complete"));
             }
             break;
 
         case SEQ_A_COMPLETE:
-            // Sequence complete, reset if needed
             break;
     }
 }
@@ -100,9 +92,12 @@ void setup()
     data.init();
 
     Serial.println(F("[MAIN] Initialization complete!"));
-    control.arm();
-    delay(6000);
-    sequenceAState = SEQ_A_START;
+
+    control.enableAttitudeControl(true);
+    control.enableAltitudeControl(true);
+    // control.arm(true);
+    // delay(5000);
+    // sequenceAState = SEQ_A_START;
 }
 
 void loop()

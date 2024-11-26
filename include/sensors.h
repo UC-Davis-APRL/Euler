@@ -108,10 +108,10 @@ inline void Sensors::initIMU()
     lsm6dsox.setGyroRange(LSM6DS_GYRO_RANGE_250_DPS);
     lis3mdl.setRange(LIS3MDL_RANGE_4_GAUSS);
 
-    lsm6dsox.setAccelDataRate(LSM6DS_RATE_104_HZ);
-    lsm6dsox.setGyroDataRate(LSM6DS_RATE_104_HZ);
+    lsm6dsox.setAccelDataRate(LSM6DS_RATE_208_HZ);
+    lsm6dsox.setGyroDataRate(LSM6DS_RATE_208_HZ);
     lis3mdl.setDataRate(LIS3MDL_DATARATE_1000_HZ);
-    lis3mdl.setPerformanceMode(LIS3MDL_MEDIUMMODE);
+    lis3mdl.setPerformanceMode(LIS3MDL_ULTRAHIGHMODE);
     lis3mdl.setOperationMode(LIS3MDL_CONTINUOUSMODE);
 
 #if defined(PRINT_IMU_DETAILS)
