@@ -10,17 +10,15 @@
 #ifndef GUIDANCE_H
 #define GUIDANCE_H
 
-#include <vehicle.h>
 #include <nav.h>
 
 class Guidance
 {
 private:
-    Vehicle *vehicle;
     Nav *nav;
 
 public:
-    Guidance(Vehicle *vehicle, Nav *nav) : vehicle(vehicle), nav(nav) {}
+    Guidance(Nav *nav) : nav(nav) {}
     void init();
     void run();
 };

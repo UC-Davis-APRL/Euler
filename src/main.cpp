@@ -2,10 +2,10 @@
 #include <sensors.h>
 #include <nav.h>
 #include <guidance.h>
+#include <actuators.h>
 #include <control.h>
 #include <comms.h>
 #include <data.h>
-#include <Servo.h>
 
 /*
     Modules (enable or disable by commenting out)
@@ -14,62 +14,20 @@
     - Nav: Fuses raw sensor data into stable navigational values
     - Guidance: Handles vehicle guidance
     - Control: Actuates vehicle control surfaces
+    - Actuators: Manages servos and motors
     - Comms: Handles bidirectional radio link
     - Data: Handles onboard logging & flight data
 */
-Vehicle vehicle = Vehicle();
+
+Actuators actuators;
+
 Sensors sensors = Sensors();
-
 Nav nav = Nav(&sensors);
-Guidance guidance = Guidance(&vehicle, &nav);
-Control control = Control(&vehicle, &nav, &guidance);
+Guidance guidance = Guidance(&nav);
 
-/* Begin Sequence A */
-enum SequenceAState {
-    SEQ_A_IDLE,
-    SEQ_A_START,
-    SEQ_A_MAIN,
-    SEQ_A_END,
-    SEQ_A_COMPLETE
-};
+Control control = Control(&nav, &actuators, &guidance);
 
-SequenceAState sequenceAState = SEQ_A_IDLE;
-unsigned long sequenceATimer = 0;
-
-void sequenceA_run() {
-    switch (sequenceAState) {
-        case SEQ_A_IDLE:
-            break;
-
-        case SEQ_A_START:
-            Serial.println(F("[SEQUENCE A] Starting sequence A"));
-            Serial.println(F("[SEQUENCE A] 10 seconds until run..."));
-            sequenceATimer = millis();
-            sequenceAState = SEQ_A_MAIN;
-            break;
-
-        case SEQ_A_MAIN:
-            if (millis() - sequenceATimer >= 10000) {
-                control.enableAltitudeControl(true);
-                sequenceATimer = millis();
-                sequenceAState = SEQ_A_END;
-            }
-            break;
-
-        case SEQ_A_END:
-            if (millis() - sequenceATimer == -1) {
-                control.enableAltitudeControl(false);
-                control.arm(false);
-                sequenceAState = SEQ_A_COMPLETE;
-                Serial.println(F("[SEQUENCE A] Sequence A complete"));
-            }
-            break;
-
-        case SEQ_A_COMPLETE:
-            break;
-    }
-}
-/* End Sequence A */
+Vehicle vehicle = Vehicle(&guidance, &control, &actuators);
 
 void setup()
 {
@@ -79,17 +37,24 @@ void setup()
     Serial.println(F("[MAIN] Initializing..."));
 
     sensors.init();
-    vehicle.init();
+
+    actuators.init(); // Initialize Actuators before Control
 
     nav.init();
     guidance.init();
     control.init();
 
+    vehicle.init();
+
     Serial.println(F("[MAIN] Initialization complete!"));
 
-    control.enableAttitudeControl(true);
-    // control.arm(true);
-    // sequenceAState = SEQ_A_START;
+    control.enableAttitudeControl(false);
+    
+    actuators.arm();
+    Serial.println(F("[MAIN] Armed. Starting in 10 seconds!"));
+    control.enableRCS(true);
+
+    vehicle.startSequenceA();
 }
 
 void loop()
@@ -98,5 +63,5 @@ void loop()
     guidance.run();
     control.run();
 
-    sequenceA_run();
+    vehicle.update();
 }

@@ -18,12 +18,21 @@ private:
     uint8_t *s_buffer = nullptr;
     is_comm_instance_t comm;
     void handleINSMessage(ins_1_t *ins);
+
+    float prev_roll = 0.0f;
+    float prev_pitch = 0.0f;
+    float prev_yaw = 0.0f;
+    unsigned long prev_time = 0;
+
 public:
     void init();
     void run();
     float roll;
     float pitch;
     float yaw;
+    float p;
+    float q;
+    float r;
     float height;
     Nav(Sensors *sensors) : sensors(sensors){}
 };
@@ -62,13 +71,19 @@ inline void Nav::init()
     messageSize = is_comm_get_data_to_buf(s_buffer, 1024, &comm, DID_INS_1, sizeof(ins_1_t), 0, 1);
     Serial2.write(comm.rxBuf.start, messageSize);
 
+    // Initialize previous state
+    prev_roll = 0.0f;
+    prev_pitch = 0.0f;
+    prev_yaw = 0.0f;
+    prev_time = millis();
+
     Serial.println("[NAV] INS initialization complete!");
 }
 
 inline void Nav::run()
 {
     sensors->updateUltrasonic();
-    height=sensors->heightRaw;
+    height = sensors->heightRaw;
     if (Serial2.available())
     {
         uint8_t inByte = Serial2.read();
@@ -102,9 +117,30 @@ inline void Nav::run()
 inline void Nav::handleINSMessage(ins_1_t *ins)
 {
     if (!ins) return;
+
     roll = ins->theta[0] * C_RAD2DEG_F;
     pitch = ins->theta[1] * C_RAD2DEG_F;
     yaw = ins->theta[2] * C_RAD2DEG_F;
+
+    unsigned long current_time = millis();
+
+    float delta_time = (current_time - prev_time) / 1000.0f;
+
+    if (delta_time > 0.0f)
+    {
+        p = (roll - prev_roll) / delta_time;
+        q = (pitch - prev_pitch) / delta_time;
+        r = (yaw - prev_yaw) / delta_time;
+    }
+    else
+    {
+        p = q = r = 0.0f;
+    }
+
+    prev_roll = roll;
+    prev_pitch = pitch;
+    prev_yaw = yaw;
+    prev_time = current_time;
 }
 
 #endif // NAV_H
