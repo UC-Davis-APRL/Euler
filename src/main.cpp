@@ -4,30 +4,31 @@
 #include <guidance.h>
 #include <actuators.h>
 #include <control.h>
-#include <comms.h>
-#include <data.h>
+#include <vehicle.h>
 
 /*
     Modules (enable or disable by commenting out)
     - Sensors: Provides access to IMU, GNSS
-    - Vehicle: Provides and manages vehicle state
+    - Actuators: Manages servos and motors
     - Nav: Fuses raw sensor data into stable navigational values
     - Guidance: Handles vehicle guidance
     - Control: Actuates vehicle control surfaces
-    - Actuators: Manages servos and motors
+    - Vehicle: Handles state machines
     - Comms: Handles bidirectional radio link
     - Data: Handles onboard logging & flight data
 */
 
-Actuators actuators;
+// Sensors & Actuators
+auto sensors = Sensors();
+auto actuators = Actuators();
 
-Sensors sensors = Sensors();
-Nav nav = Nav(&sensors);
-Guidance guidance = Guidance(&nav);
+// Guidance, Navigation & Control Logic
+auto nav = Nav(&sensors);
+auto guidance = Guidance(&nav);
+auto control = Control(&nav, &actuators, &guidance);
 
-Control control = Control(&nav, &actuators, &guidance);
-
-Vehicle vehicle = Vehicle(&guidance, &control, &actuators);
+// State Machines
+auto vehicle = Vehicle(&guidance, &control, &actuators);
 
 void setup()
 {
@@ -37,8 +38,7 @@ void setup()
     Serial.println(F("[MAIN] Initializing..."));
 
     sensors.init();
-
-    actuators.init(); // Initialize Actuators before Control
+    actuators.init();
 
     nav.init();
     guidance.init();
@@ -48,13 +48,10 @@ void setup()
 
     Serial.println(F("[MAIN] Initialization complete!"));
 
-    control.enableAttitudeControl(false);
-    
+    control.enableAttitudeControl(true);
+    // control.enableRCS(true);
     actuators.arm();
-    Serial.println(F("[MAIN] Armed. Starting in 10 seconds!"));
-    control.enableRCS(true);
-
-    vehicle.startSequenceA();
+    vehicle.startSequenceC();
 }
 
 void loop()

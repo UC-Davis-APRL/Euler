@@ -82,23 +82,19 @@ inline Vehicle::Vehicle(Guidance* guidance, Control* control, Actuators* actuato
 {
 }
 
-// Initialization
 inline void Vehicle::init()
 {
     Serial.println(F("[VEHICLE] Initializing..."));
-    // TODO: Additional initialization if needed
     Serial.println(F("[VEHICLE] Initialization complete!"));
 }
 
-// Update method
 inline void Vehicle::update()
 {
     sequenceA_run();
     sequenceB_run();
-    sequenceC_run();  // <-- Call Sequence C Runner
+    sequenceC_run();
 }
 
-// Start Sequence A
 inline void Vehicle::startSequenceA()
 {
     if (sequenceAState == SEQ_A_IDLE) {
@@ -106,13 +102,11 @@ inline void Vehicle::startSequenceA()
     }
 }
 
-// Stop Sequence A
 inline void Vehicle::stopSequenceA()
 {
     sequenceAState = SEQ_A_IDLE;
 }
 
-// Start Sequence B
 inline void Vehicle::startSequenceB()
 {
     if (sequenceBState == SEQ_B_IDLE) {
@@ -120,13 +114,11 @@ inline void Vehicle::startSequenceB()
     }
 }
 
-// Stop Sequence B
 inline void Vehicle::stopSequenceB()
 {
     sequenceBState = SEQ_B_IDLE;
 }
 
-// Start Sequence C
 inline void Vehicle::startSequenceC()
 {
     if (sequenceCState == SEQ_C_IDLE) {
@@ -134,13 +126,11 @@ inline void Vehicle::startSequenceC()
     }
 }
 
-// Stop Sequence C
 inline void Vehicle::stopSequenceC()
 {
     sequenceCState = SEQ_C_IDLE;
 }
 
-// Sequence A Runner
 inline void Vehicle::sequenceA_run()
 {
     switch (sequenceAState) {
@@ -156,7 +146,8 @@ inline void Vehicle::sequenceA_run()
 
         case SEQ_A_MAIN:
             if (millis() - sequenceATimer >= 10000) {
-                control->enableAltitudeControl(true);
+                // control->enableAltitudeControl(true);
+                actuators->setThrust(.5);
                 Serial.println(F("[SEQUENCE A] Altitude control enabled"));
                 sequenceATimer = millis();
                 sequenceAState = SEQ_A_END;
@@ -164,7 +155,7 @@ inline void Vehicle::sequenceA_run()
             break;
 
         case SEQ_A_END:
-            if (millis() - sequenceATimer >= -1) { // This condition seems incorrect; consider reviewing
+            if (millis() - sequenceATimer >= -1) {
                 control->enableAltitudeControl(false);
                 actuators->disarm();
                 sequenceAState = SEQ_A_COMPLETE;
@@ -177,7 +168,6 @@ inline void Vehicle::sequenceA_run()
     }
 }
 
-// Sequence B Runner
 inline void Vehicle::sequenceB_run()
 {
     switch (sequenceBState) {
@@ -186,13 +176,13 @@ inline void Vehicle::sequenceB_run()
 
         case SEQ_B_START:
             Serial.println(F("[SEQUENCE B] Starting sequence B"));
-            Serial.println(F("[SEQUENCE B] 10 seconds until run...")); // <-- Added wait message
+            Serial.println(F("[SEQUENCE B] 10 seconds until run..."));
             sequenceBTimer = millis();
-            sequenceBState = SEQ_B_WAIT; // <-- Transition to WAIT state
+            sequenceBState = SEQ_B_WAIT;
             break;
 
-        case SEQ_B_WAIT: // <-- New State Handling
-            if (millis() - sequenceBTimer >= 6000) { // 10-second wait
+        case SEQ_B_WAIT:
+            if (millis() - sequenceBTimer >= 6000) {
                 Serial.println(F("[SEQUENCE B] Wait complete. Proceeding with sequence B actions."));
                 sequenceBState = SEQ_B_SET_THRUST;
             }
@@ -200,35 +190,35 @@ inline void Vehicle::sequenceB_run()
 
         case SEQ_B_SET_THRUST:
             Serial.println(F("[SEQUENCE B] Setting thrust to 50%"));
-            actuators->setThrust(0.5);
+            actuators->setThrust(0.7);
             sequenceBTimer = millis();
             sequenceBState = SEQ_B_INCREASE_TORQUE;
             break;
 
         case SEQ_B_INCREASE_TORQUE:
-            if (millis() - sequenceBTimer >= 3000) { // Updated from 2000 to 3000 ms
+            if (millis() - sequenceBTimer >= 4000) {
                 Serial.println(F("[SEQUENCE B] Increasing torque to +0.1"));
-                actuators->setTorque(0.1);
+                actuators->setTorque(0.5);
                 sequenceBTimer = millis();
                 sequenceBState = SEQ_B_DECREASE_TORQUE;
             }
             break;
 
         case SEQ_B_DECREASE_TORQUE:
-            if (millis() - sequenceBTimer >= 3000) { // Updated from 2000 to 3000 ms
+            if (millis() - sequenceBTimer >= 4000) {
                 Serial.println(F("[SEQUENCE B] Decreasing torque to -0.1"));
-                actuators->setTorque(-0.1);
+                actuators->setTorque(-0.5);
                 sequenceBTimer = millis();
                 sequenceBState = SEQ_B_END;
             }
             break;
 
         case SEQ_B_END:
-            if (millis() - sequenceBTimer >= 3000) { // Updated from 2000 to 3000 ms
+            if (millis() - sequenceBTimer >= 4000) {
                 Serial.println(F("[SEQUENCE B] Resetting torque to 0 and stopping motors"));
                 actuators->setTorque(0.0);
                 actuators->setThrust(0.0);
-                actuators->disarm(); // Disarm motors
+                actuators->disarm();
                 sequenceBState = SEQ_B_COMPLETE;
                 Serial.println(F("[SEQUENCE B] Sequence B complete"));
             }
@@ -239,7 +229,6 @@ inline void Vehicle::sequenceB_run()
     }
 }
 
-// <-- Added Sequence C Runner
 inline void Vehicle::sequenceC_run()
 {
     switch (sequenceCState) {
@@ -254,19 +243,17 @@ inline void Vehicle::sequenceC_run()
             break;
 
         case SEQ_C_MAIN:
-            if (millis() - sequenceCTimer >= 10000) { // 10-second delay
-                // TODO: Add your sequence C main actions here
+            if (millis() - sequenceCTimer >= 10000) {
                 Serial.println(F("[SEQUENCE C] Executing main actions of sequence C"));
-                control->enableRCS(true);
-                actuators->setThrust(.43);
+                // control->enableRCS(true);
+                actuators->setThrust(.65);
                 sequenceCTimer = millis();
                 sequenceCState = SEQ_C_END;
             }
             break;
 
         case SEQ_C_END:
-            if (millis() - sequenceCTimer >= 1000) { // Example condition
-                // TODO: Add your sequence C end actions here
+            if (millis() - sequenceCTimer >= 1000) {
                 Serial.println(F("[SEQUENCE C] Ending sequence C"));
                 sequenceCState = SEQ_C_COMPLETE;
                 Serial.println(F("[SEQUENCE C] Sequence C complete"));

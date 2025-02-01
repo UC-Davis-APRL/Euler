@@ -118,9 +118,16 @@ inline void Nav::handleINSMessage(ins_1_t *ins)
 {
     if (!ins) return;
 
-    roll = ins->theta[0] * C_RAD2DEG_F;
-    pitch = ins->theta[1] * C_RAD2DEG_F;
+    pitch = ins->theta[0] * C_RAD2DEG_F;
+    roll = -ins->theta[1] * C_RAD2DEG_F;
     yaw = ins->theta[2] * C_RAD2DEG_F;
+
+    // Serial.print("[DEBUG] Roll (deg): ");
+    // Serial.println(roll);
+    // Serial.print("[DEBUG] Pitch (deg): ");
+    // Serial.println(pitch);
+    // Serial.print("[DEBUG] Yaw (deg): ");
+    // Serial.println(yaw);
 
     unsigned long current_time = millis();
 

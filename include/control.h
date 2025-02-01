@@ -31,7 +31,7 @@ private:
     Actuators *actuators;
     Guidance *guidance;
 
-    bool debug = true;
+    bool debug = false;
 
     bool attitudeControl = false;
     bool altitudeControl = false;
@@ -62,10 +62,10 @@ private:
     // Initial motor speeds 
     int motorSpeed = 0;
 
-    float Kp_altitude = 40.0f;
+    float Kp_altitude = 80.0f;
     float Ki_altitude = 40.0f;
     float Kd_altitude = 0.0f;
-    float targetHeight = 0.6f;
+    float targetHeight = 0.5f;
 
     // Runtime variables (don't touch)
     float integralAltitude = 0.0f;
@@ -234,9 +234,10 @@ public:
             Serial.print(" q: "); Serial.print(q);
             Serial.print(" r: "); Serial.println(r);
         }
+        const float gain = 0.2f;
 
-        actuators->setPitchServoAngle(constrain(-output[0], -30.0f, 30.0f));
-        actuators->setRollServoAngle(constrain(-output[1], -30.0f, 30.0f));
+        actuators->setPitchServoAngle(constrain(output[1] * gain , -30.0f, 30.0f));
+        actuators->setRollServoAngle(constrain(output[0] * gain, -30.0f, 30.0f));
         // actuators->setThrust(0.0);
         // actuators->setTorqueRCS(0.0);
     }
