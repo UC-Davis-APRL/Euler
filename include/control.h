@@ -43,7 +43,7 @@ private:
     float setpointRoll = 0.0;
     float setpointPitch = 0.0;
     float setpointYaw = 0.0;
-    Matrix4x6 thingu;
+    Matrix4x6 k_matrix;
 
     // Runtime variables (don't touch)
     unsigned long attitudeTimestamp = 0;
@@ -79,7 +79,7 @@ public:
         Serial.println(F("[CONTROL] Initializing..."));
         actuators->init();
 
-        thingu << -1.7321,-0.0000,0.0000,-1.7425,0.0000,0.0000,0.0000,-1.7321,0.0000,-0.0000,-1.7425,0.0000,0,0,0,0,0,0,-0.0000,-0.0000,1.7321,0.0000,0.0000,1.7339; // K Matrix
+        k_matrix << -1.7321,-0.0000,0.0000,-1.7425,0.0000,0.0000,0.0000,-1.7321,0.0000,-0.0000,-1.7425,0.0000,0,0,0,0,0,0,-0.0000,-0.0000,1.7321,0.0000,0.0000,1.7339; // K Matrix
 
         Serial.println(F("[CONTROL] Control initialization complete!"));
     }
@@ -224,7 +224,7 @@ public:
         Vector6 state;
         Vector4c output;    
         state << roll, pitch, yaw, p, q, r;
-        output = -this->thingu * state;
+        output = -this->k_matrix * state;
         
         if (debug) {
             Serial.print("Roll: "); Serial.print(roll);
