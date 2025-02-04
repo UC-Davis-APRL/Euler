@@ -20,12 +20,12 @@ using namespace Eigen;
 #define ATTITUDE_CONTROL_RATE_HZ 10
 #define RCS_CONTROL_RATE_HZ 10
 
-
-typedef Matrix<float, 4, 6 > Matrix4x6;
+typedef Matrix<float, 3, 6> Matrix3x6;
 typedef Matrix<float, 6, 1> Vector6;
-typedef Matrix<float, 4, 1> Vector4c;
+typedef Matrix<float, 3, 1> Vector3c;
 
-class Control {
+class Control
+{
 private:
     Nav *nav;
     Actuators *actuators;
@@ -43,7 +43,7 @@ private:
     float setpointRoll = 0.0;
     float setpointPitch = 0.0;
     float setpointYaw = 0.0;
-    Matrix4x6 k_matrix;
+    Matrix3x6 k_matrix;
 
     // Runtime variables (don't touch)
     unsigned long attitudeTimestamp = 0;
@@ -54,12 +54,12 @@ private:
     float Kp_RCS = 0.001f;
     float Kd_RCS = 0.1f;
     float prevErrorRCS = 0.0f;
-    unsigned long rcsTimestamp = 0;    
+    unsigned long rcsTimestamp = 0;
 
     /*
         Altitude Control
-    */    
-    // Initial motor speeds 
+    */
+    // Initial motor speeds
     int motorSpeed = 0;
 
     float Kp_altitude = 80.0f;
@@ -70,39 +70,48 @@ private:
     // Runtime variables (don't touch)
     float integralAltitude = 0.0f;
     float prevErrorAltitude = 0.0f;
-    unsigned long altitudeTimestamp = 0;    
+    unsigned long altitudeTimestamp = 0;
 
 public:
-    Control(Nav *nav, Actuators *actuators, Guidance *guidance): nav(nav), actuators(actuators), guidance(guidance) {}
+    Control(Nav *nav, Actuators *actuators, Guidance *guidance) : nav(nav), actuators(actuators), guidance(guidance) {}
 
-    void init() {
+    void init()
+    {
         Serial.println(F("[CONTROL] Initializing..."));
         actuators->init();
 
-        k_matrix << -1.7321,-0.0000,0.0000,-1.7425,0.0000,0.0000,0.0000,-1.7321,0.0000,-0.0000,-1.7425,0.0000,0,0,0,0,0,0,-0.0000,-0.0000,1.7321,0.0000,0.0000,1.7339; // K Matrix
+        k_matrix << 1.0000, 0.0000, 0.0000, 1.0954, 0.0000, 0.0000, -0.0000, 1.0000, 0.0000, -0.0000, 1.0954, 0.0000, -0.0000, 0.0000, 1.0000, 0.0000, 0.0000, 1.0954; // K Matrix
 
         Serial.println(F("[CONTROL] Control initialization complete!"));
     }
 
-    void run() {
-        if (altitudeControl){
+    void run()
+    {
+        if (altitudeControl)
+        {
             this->runAltitudeController();
         }
 
-        if (rcs) {
+        if (rcs)
+        {
             this->runRCS();
         }
 
-        if (attitudeControl){
+        if (attitudeControl)
+        {
             this->runAttitudeController();
-        } else {
+        }
+        else
+        {
             actuators->setPitchServoAngle(0);
             actuators->setRollServoAngle(0);
         }
     }
 
-    void enableAltitudeControl(bool on_off) {
-        if (on_off) {
+    void enableAltitudeControl(bool on_off)
+    {
+        if (on_off)
+        {
             altitudeControl = true;
             altitudeTimestamp = micros();
             Serial.println(F("[CONTROL] Enabled altitude control."));
@@ -113,8 +122,10 @@ public:
         Serial.println(F("[CONTROL] Disabled altitude control."));
     }
 
-    void enableAttitudeControl(bool on_off) {
-        if (on_off) {
+    void enableAttitudeControl(bool on_off)
+    {
+        if (on_off)
+        {
             attitudeControl = true;
             attitudeTimestamp = micros();
             Serial.println(F("[CONTROL] Enabled attitude control."));
@@ -125,8 +136,10 @@ public:
         Serial.println(F("[CONTROL] Disabled attitude control."));
     }
 
-    void enableRCS(bool on_off) {
-        if (on_off) {
+    void enableRCS(bool on_off)
+    {
+        if (on_off)
+        {
             rcs = true;
             rcsTimestamp = micros();
             Serial.println(F("[CONTROL] Enabled RCS control."));
@@ -138,7 +151,7 @@ public:
     }
 
     void runAltitudeController()
-    {   
+    {
         unsigned long currentTime = micros();
         unsigned long deltaTimeMicros = currentTime - altitudeTimestamp;
 
@@ -180,7 +193,8 @@ public:
         actuators->setThrust(motorSpeed / 255.0);
     }
 
-    void runRCS() {
+    void runRCS()
+    {
         unsigned long currentTime = micros();
         unsigned long deltaTimeMicros = currentTime - rcsTimestamp;
 
@@ -192,7 +206,7 @@ public:
         float deltaTime = deltaTimeMicros / 1000000.0f; // Convert microseconds to seconds
 
         float r = nav->yaw;
-        float errorRCS = 0-r;
+        float errorRCS = 0 - r;
 
         float derivativeRCS = (errorRCS - prevErrorRCS) / deltaTime;
         float controlRCS = Kp_RCS * errorRCS + Kd_RCS * derivativeRCS;
@@ -211,33 +225,45 @@ public:
             return;
         }
         attitudeTimestamp = currentTime;
-        
+
         float deltaTime = deltaTimeMicros / 1000000.0f;
 
-        float roll = nav->roll; // phi
-        float pitch = nav->pitch; // theta 
-        float yaw  = nav->yaw; // psi
+        float roll = nav->roll;   // phi
+        float pitch = nav->pitch; // theta
+        float yaw = nav->yaw;     // psi
         float p = nav->p;
         float q = nav->q;
         float r = nav->r;
 
         Vector6 state;
-        Vector4c output;    
+        Vector3c output;
         state << roll, pitch, yaw, p, q, r;
         output = -this->k_matrix * state;
-        
-        if (debug) {
-            Serial.print("Roll: "); Serial.print(roll);
-            Serial.print(" Pitch: "); Serial.print(pitch);
-            Serial.print(" Yaw: "); Serial.println(yaw);
-            Serial.print("p: "); Serial.print(p);
-            Serial.print(" q: "); Serial.print(q);
-            Serial.print(" r: "); Serial.println(r);
+
+        if (debug)
+        {
+            Serial.print("Roll: ");
+            Serial.print(roll);
+            Serial.print(" Pitch: ");
+            Serial.print(pitch);
+            Serial.print(" Yaw: ");
+            Serial.println(yaw);
+            Serial.print("p: ");
+            Serial.print(p);
+            Serial.print(" q: ");
+            Serial.print(q);
+            Serial.print(" r: ");
+            Serial.println(r);
         }
         const float gain = 0.2f;
 
-        actuators->setPitchServoAngle(constrain(output[1] * gain , -30.0f, 30.0f));
-        actuators->setRollServoAngle(constrain(output[0] * gain, -30.0f, 30.0f));
+        float weight = 3 * 9.81; // WEIGHT OF THE CRAFT (N)
+        float lever_arm = .2;    // LEVER ARM DISTANCE ( COM -> GIMBAL) (m)
+
+        float angle_roll = asin(output[0] / (weight * lever_arm));
+        float angle_pitch = asin(output[1] / (weight * lever_arm));
+        actuators->setPitchServoAngle(constrain(angle_pitch * gain, -30.0f, 30.0f));
+        actuators->setRollServoAngle(constrain(angle_roll * gain, -30.0f, 30.0f));
         // actuators->setThrust(0.0);
         // actuators->setTorqueRCS(0.0);
     }
