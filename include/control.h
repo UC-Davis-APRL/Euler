@@ -9,14 +9,24 @@
 #ifndef CONTROL_H
 #define CONTROL_H
 
+#include <Arduino.h>
 #include <nav.h>
 #include "actuators.h"
 #include "guidance.h"
 #include <ArduinoEigenDense.h>
+#include <cmath>   // for isnan()
 using namespace Eigen;
 
-#define ALTITUDE_CONTROL_RATE_HZ 20
+// *FIX*: Ensure PI is defined (Arduino may already define PI, but this is safe)
+#ifndef PI
+#define PI 3.14159265
+#endif
 
+// *FIX*: Define conversion macros
+#define DEG_TO_RAD (PI/180.0)
+#define RAD_TO_DEG (180.0/PI)
+
+#define ALTITUDE_CONTROL_RATE_HZ 20
 #define ATTITUDE_CONTROL_RATE_HZ 10
 #define RCS_CONTROL_RATE_HZ 10
 
@@ -31,7 +41,7 @@ private:
     Actuators *actuators;
     Guidance *guidance;
 
-    bool debug = false;
+    bool debug = true;
 
     bool attitudeControl = false;
     bool altitudeControl = false;
@@ -40,12 +50,9 @@ private:
     /*
         Attitude Control
     */
-    float setpointRoll = 0.0;
-    float setpointPitch = 0.0;
-    float setpointYaw = 0.0;
     Matrix3x6 k_matrix;
 
-    // Runtime variables (don't touch)
+    // Runtime variable for control rate
     unsigned long attitudeTimestamp = 0;
 
     /*
@@ -59,28 +66,30 @@ private:
     /*
         Altitude Control
     */
-    // Initial motor speeds
     int motorSpeed = 0;
-
     float Kp_altitude = 80.0f;
     float Ki_altitude = 40.0f;
     float Kd_altitude = 0.0f;
     float targetHeight = 0.5f;
 
-    // Runtime variables (don't touch)
+    // Runtime variables (for PID)
     float integralAltitude = 0.0f;
     float prevErrorAltitude = 0.0f;
     unsigned long altitudeTimestamp = 0;
 
 public:
-    Control(Nav *nav, Actuators *actuators, Guidance *guidance) : nav(nav), actuators(actuators), guidance(guidance) {}
+    Control(Nav *nav, Actuators *actuators, Guidance *guidance)
+        : nav(nav), actuators(actuators), guidance(guidance) {}
 
     void init()
     {
         Serial.println(F("[CONTROL] Initializing..."));
         actuators->init();
 
-        k_matrix << 1.0000, 0.0000, 0.0000, 1.0954, 0.0000, 0.0000, -0.0000, 1.0000, 0.0000, -0.0000, 1.0954, 0.0000, -0.0000, 0.0000, 1.0000, 0.0000, 0.0000, 1.0954; // K Matrix
+        // *FIX*: The K matrix is defined row‐by‐row.
+        k_matrix << 1.0000, 0.0000, 0.0000, 1.0954, 0.0000, 0.0000,
+                    0.0000, 1.0000, 0.0000, 0.0000, 1.0954, 0.0000,
+                    0.0000, 0.0000, 1.0000, 0.0000, 0.0000, 1.0954;
 
         Serial.println(F("[CONTROL] Control initialization complete!"));
     }
@@ -117,7 +126,6 @@ public:
             Serial.println(F("[CONTROL] Enabled altitude control."));
             return;
         }
-
         altitudeControl = false;
         Serial.println(F("[CONTROL] Disabled altitude control."));
     }
@@ -131,7 +139,6 @@ public:
             Serial.println(F("[CONTROL] Enabled attitude control."));
             return;
         }
-
         attitudeControl = false;
         Serial.println(F("[CONTROL] Disabled attitude control."));
     }
@@ -145,7 +152,6 @@ public:
             Serial.println(F("[CONTROL] Enabled RCS control."));
             return;
         }
-
         rcs = false;
         Serial.println(F("[CONTROL] Disabled RCS control."));
     }
@@ -155,12 +161,12 @@ public:
         unsigned long currentTime = micros();
         unsigned long deltaTimeMicros = currentTime - altitudeTimestamp;
 
-        if (deltaTimeMicros < (1000000 / ALTITUDE_CONTROL_RATE_HZ))
+        if (deltaTimeMicros < (1000000UL / ALTITUDE_CONTROL_RATE_HZ))
         {
             return;
         }
         altitudeTimestamp = currentTime;
-        float deltaTime = deltaTimeMicros / 1000000.0f; // Convert microseconds to seconds
+        float deltaTime = deltaTimeMicros / 1000000.0f; // seconds
 
         // Altitude PID control
         float errorAltitude = targetHeight - nav->height;
@@ -173,23 +179,19 @@ public:
         float derivativeAltitude = (errorAltitude - prevErrorAltitude) / deltaTime;
 
         // Compute control output
-        float controlAltitude = Kp_altitude * errorAltitude + Ki_altitude * integralAltitude + Kd_altitude * derivativeAltitude;
+        float controlAltitude = Kp_altitude * errorAltitude +
+                                Ki_altitude * integralAltitude +
+                                Kd_altitude * derivativeAltitude;
 
-        // Update previous error
         prevErrorAltitude = errorAltitude;
 
-        // Adjust motor speeds with rate limiting
         int desiredChange = static_cast<int>(controlAltitude);
-
-        // Adjust motor speeds
         motorSpeed = 40 + desiredChange;
-
-        // Ensure motor speeds are within acceptable limits (e.g., 0 to 155)
         motorSpeed = constrain(motorSpeed, 0, 255);
 
-        printf("Height: %.2f, Error: %.2f, Control Output: %.2f, Motor Setpoints: %d \n", nav->height, errorAltitude, controlAltitude, motorSpeed);
+        Serial.printf("Height: %.2f, Error: %.2f, Control Output: %.2f, Motor Setpoints: %d\n",
+                      nav->height, errorAltitude, controlAltitude, motorSpeed);
 
-        // Set motor speeds via Actuators
         actuators->setThrust(motorSpeed / 255.0);
     }
 
@@ -198,20 +200,21 @@ public:
         unsigned long currentTime = micros();
         unsigned long deltaTimeMicros = currentTime - rcsTimestamp;
 
-        if (deltaTimeMicros < (1000000 / RCS_CONTROL_RATE_HZ))
+        if (deltaTimeMicros < (1000000UL / RCS_CONTROL_RATE_HZ))
         {
             return;
         }
         rcsTimestamp = currentTime;
-        float deltaTime = deltaTimeMicros / 1000000.0f; // Convert microseconds to seconds
+        float deltaTime = deltaTimeMicros / 1000000.0f;
 
+        // Here we assume nav->yaw is already in radians.
         float r = nav->yaw;
         float errorRCS = 0 - r;
 
         float derivativeRCS = (errorRCS - prevErrorRCS) / deltaTime;
         float controlRCS = Kp_RCS * errorRCS + Kd_RCS * derivativeRCS;
 
-        printf("r: %.2f, control: %.2f\n", r, errorRCS * Kp_RCS);
+        Serial.printf("r: %.2f, control: %.2f\n", r, errorRCS * Kp_RCS);
         actuators->setTorque(errorRCS * Kp_RCS);
     }
 
@@ -220,25 +223,34 @@ public:
         unsigned long currentTime = micros();
         unsigned long deltaTimeMicros = currentTime - attitudeTimestamp;
 
-        if (deltaTimeMicros < (1000000 / ATTITUDE_CONTROL_RATE_HZ))
+        if (deltaTimeMicros < (1000000UL / ATTITUDE_CONTROL_RATE_HZ))
         {
             return;
         }
         attitudeTimestamp = currentTime;
 
-        float deltaTime = deltaTimeMicros / 1000000.0f;
+        float roll  = nav->roll  * DEG_TO_RAD;   // phi
+        float pitch = nav->pitch * DEG_TO_RAD;   // theta
+        float yaw   = nav->yaw   * DEG_TO_RAD;   // psi
+        float p     = nav->p     * DEG_TO_RAD;
+        float q     = nav->q     * DEG_TO_RAD;
+        float r     = nav->r     * DEG_TO_RAD;
 
-        float roll = nav->roll;   // phi
-        float pitch = nav->pitch; // theta
-        float yaw = nav->yaw;     // psi
-        float p = nav->p;
-        float q = nav->q;
-        float r = nav->r;
+        // Optional: Check for invalid sensor values.
+        if (isnan(roll) || isnan(pitch) || isnan(yaw) ||
+            isnan(p) || isnan(q) || isnan(r))
+        {
+            Serial.println(F("[CONTROL] Invalid sensor data."));
+            return;
+        }
 
         Vector6 state;
         Vector3c output;
         state << roll, pitch, yaw, p, q, r;
-        output = -this->k_matrix * state;
+        // Note: The control law is: output = -K * state.
+        Vector6 setpoint;
+        setpoint << 3 * DEG_TO_RAD, 0 * DEG_TO_RAD, 0 * DEG_TO_RAD, 0, 0, 0;
+        output = k_matrix * (setpoint - state);
 
         if (debug)
         {
@@ -248,24 +260,35 @@ public:
             Serial.print(pitch);
             Serial.print(" Yaw: ");
             Serial.println(yaw);
-            Serial.print("p: ");
-            Serial.print(p);
-            Serial.print(" q: ");
-            Serial.print(q);
-            Serial.print(" r: ");
-            Serial.println(r);
+
+            // Serial.print("p: ");
+            // Serial.print(p);
+            // Serial.print(" q: ");
+            // Serial.print(q);
+            // Serial.print(" r: ");
+            // Serial.println(r);
         }
-        const float gain = 0.2f;
+        const float gain = 1.0f;
 
-        float weight = 3 * 9.81; // WEIGHT OF THE CRAFT (N)
-        float lever_arm = .2;    // LEVER ARM DISTANCE ( COM -> GIMBAL) (m)
+        double weight = 3 * 9.81; // Craft weight in Newtons
+        double lever_arm = 0.2;   // Distance from COM to gimbal (meters)
 
-        float angle_roll = asin(output[0] / (weight * lever_arm));
-        float angle_pitch = asin(output[1] / (weight * lever_arm));
-        actuators->setPitchServoAngle(constrain(angle_pitch * gain, -30.0f, 30.0f));
-        actuators->setRollServoAngle(constrain(angle_roll * gain, -30.0f, 30.0f));
-        // actuators->setThrust(0.0);
-        // actuators->setTorqueRCS(0.0);
+        // *FIX*: Compute the normalized command and convert to degrees.
+        float norm_roll = output[0] / (weight * lever_arm);
+        norm_roll = constrain(norm_roll, (-PI / 2) + 0.01, (PI / 2) - 0.01);
+        double angle_roll = norm_roll * RAD_TO_DEG;
+
+        float norm_pitch = output[1] / (weight * lever_arm);
+        norm_pitch = constrain(norm_pitch, (-PI / 2) + 0.01, (PI / 2) - 0.01);
+        double angle_pitch = norm_pitch * RAD_TO_DEG;
+
+        // Serial.println(angle_roll);
+        // Serial.println(angle_pitch);
+
+        // Finally, command the servos (limiting the angle to [-30, 30] degrees)
+        actuators->setPitchServoAngle(constrain(-angle_pitch * gain, -30.0f, 30.0f));
+        actuators->setRollServoAngle(constrain(-angle_roll * gain, -30.0f, 30.0f));
     }
 };
+
 #endif // CONTROL_H

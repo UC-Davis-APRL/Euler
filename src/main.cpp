@@ -50,8 +50,8 @@ void setup()
 
     control.enableAttitudeControl(true);
     // control.enableRCS(true);
-    // actuators.arm();
-    // vehicle.startSequenceC();
+    actuators.arm();
+    vehicle.startSequenceC();
 }
 
 void loop()

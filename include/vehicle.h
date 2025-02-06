@@ -246,7 +246,7 @@ inline void Vehicle::sequenceC_run()
             if (millis() - sequenceCTimer >= 10000) {
                 Serial.println(F("[SEQUENCE C] Executing main actions of sequence C"));
                 // control->enableRCS(true);
-                actuators->setThrust(.65);
+                actuators->setThrust(.67);
                 sequenceCTimer = millis();
                 sequenceCState = SEQ_C_END;
             }
